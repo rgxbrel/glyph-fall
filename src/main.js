@@ -346,6 +346,9 @@ for (const el of document.querySelectorAll('#pad .kb')) {
     if (act === 'attack' && attackRepeat) { clearInterval(attackRepeat); attackRepeat = null; }
   };
   el.addEventListener('pointerdown', down);
+  /* A tap fires pointerdown and then click; without this the click bubbles on to
+   * the chat bar and every D-pad press also opens the input. */
+  el.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
   el.addEventListener('pointerup', up);
   el.addEventListener('pointercancel', up);
   el.addEventListener('pointerleave', up);
