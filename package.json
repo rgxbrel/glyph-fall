@@ -1,5 +1,8 @@
 {
   "type": "module",
+  "scripts": {
+    "host": "node host.mjs"
+  },
   "dependencies": {
     "ws": "^8.22.1"
   }

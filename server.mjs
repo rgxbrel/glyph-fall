@@ -169,14 +169,21 @@ function clientsEnts() {
   return rows;
 }
 
+/* A bad command or a NaN in the sim must not take the world down: the tick is
+ * the only thing that can throw on user input, so it is caught and reported. */
 let acc = 0;
 setInterval(() => {
   acc += 1 / 6;
   while (acc >= TICK) {
-    for (const [pid, cmd] of pendingCmds) applyCommand(state, state.tick, pid, cmd);
-    pendingCmds = [];
-    stepSim(state, map, TICK);
     acc -= TICK;
+    try {
+      for (const [pid, cmd] of pendingCmds) applyCommand(state, state.tick, pid, cmd);
+      pendingCmds = [];
+      stepSim(state, map, TICK);
+    } catch (e) {
+      pendingCmds = [];
+      console.error(`tick ${state.tick} failed: ${e.stack || e}`);
+    }
   }
 }, 1000 / 6);
 
@@ -197,6 +204,9 @@ setInterval(() => {
     console.error('snapshot failed:', e.message);
   }
 }, 1000 / SNAP_HZ);
+
+process.on('uncaughtException', (e) => console.error('uncaught:', e.stack || e));
+process.on('unhandledRejection', (e) => console.error('rejection:', e && e.stack ? e.stack : e));
 
 httpSrv.listen(PORT, '0.0.0.0', () => {
   console.log(`GLYPH FALL host on :${PORT} (seed ${SEED}, ${SNAP_HZ} Hz snapshots)`);

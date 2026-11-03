@@ -85,12 +85,19 @@ export function spawnWorld(state, map) {
 
 /* ------------------------------------------------------------------ input -- */
 
+/* A client can send anything, and one NaN reaching a position is permanent: the
+ * avatar leaves the world and never comes back. */
+const unit = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.max(-1, Math.min(1, n)) : 0;
+};
+
 export function applyCommand(state, tick, playerId, cmd) {
   const p = state.players[playerId];
-  if (!p) return;
+  if (!p || typeof cmd !== 'object' || cmd === null) return;
   if (p.dead && cmd.t !== 'move') return;
   switch (cmd.t) {
-    case 'move': p.inx = clamp(cmd.dx, -1, 1); p.iny = clamp(cmd.dy, -1, 1); break;
+    case 'move': p.inx = unit(cmd.dx); p.iny = unit(cmd.dy); break;
     case 'attack': attack(state, p, cmd.target); break;
     case 'cast': cast(state, p, cmd.skill, cmd.target); break;
     case 'interact': interact(state, p); break;
@@ -103,8 +110,6 @@ export function applyCommand(state, tick, playerId, cmd) {
     default: break;
   }
 }
-
-const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 function attack(state, p, targetId) {
   if (p.cds.attack > 0) return;
@@ -224,7 +229,7 @@ function equipItem(state, p, slot) {
   const s = p.inv[slot];
   if (!s) return;
   const it = ITEMS[s.id];
-  if (it.kind !== 'weapon' && it.kind !== 'armor') return;
+  if (!it || (it.kind !== 'weapon' && it.kind !== 'armor')) return;
   const key = it.kind;
   const prev = p.equip[key];
   p.equip[key] = s.id;
