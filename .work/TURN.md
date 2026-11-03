@@ -108,3 +108,5 @@ game and will read this file when back.
 - mobile-combat: holding ATTACK now retargets and queues strikes every 180ms; mmo2 regression stayed at 60 fps with 0 client errors (fccf148).
 
 - safe-spawn: procedural enemies inside SAFE_RADIUS are now skipped at world generation; safe_live confirmed damage remains blocked in plaza and resumes at 264px; crash fuzz kept host ticking with websocket open (e9afcd0).
+
+- progression: enemies now drop MANA ROOT (15%) or HERB (35%); pickup interaction accepts both. mmo2 rerun passed at 60 fps with 0 client errors after one transient browser-frame failure.
