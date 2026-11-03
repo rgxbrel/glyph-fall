@@ -30,6 +30,8 @@ var boss_telegraph := 0.0
 var camera_shake := 0.0
 var kills := 0
 var wave := 1
+var paused_game := false
+var last_boss_phase := 1
 
 func _ready() -> void:
 	var env := WorldEnvironment.new()
@@ -119,6 +121,8 @@ func _input(event: InputEvent) -> void:
 			_dash()
 		elif event.scancode == KEY_R and boss_defeated:
 			_reset_boss()
+		elif event.scancode == KEY_P:
+			paused_game = not paused_game
 
 func _move_vector() -> Vector3:
 	var v := Vector3()
@@ -205,6 +209,11 @@ func _reset_boss() -> void:
 	boss_attack = 2.0
 	boss_telegraph = 0.0
 	boss_defeated = false
+	paused_game = false
+	for shot in projectiles:
+		var old_node: Spatial = shot["node"]
+		old_node.queue_free()
+	projectiles.clear()
 	boss.visible = true
 	boss_ring.visible = false
 	boss.translation = Vector3(0, 0.95, -6)
@@ -273,6 +282,7 @@ func _step_projectiles(delta: float) -> void:
 				if enemy_hp[enemy_index] <= 0:
 					_spawn_effect(enemy.translation, Color("ff6b72"), 0.28, 0.42)
 					enemy.visible = false
+					enemy.scale = Vector3.ONE * 0.1
 					enemy_respawn[enemy_index] = 0.45
 				break
 		if not remove and boss and boss.visible and node.translation.distance_to(boss.translation) < 1.35:
@@ -326,10 +336,18 @@ func _step_boss(delta: float) -> void:
 		boss.translation += to_player.normalized() * (0.45 + boss_phase * 0.18) * delta
 	boss.translation.y = 0.95 + sin(t * 2.0) * 0.12
 	boss_phase = 1 if boss_hp > 20 else (2 if boss_hp > 10 else 3)
+	if boss_phase != last_boss_phase:
+		last_boss_phase = boss_phase
+		_spawn_effect(boss.translation, Color("f6b6ff"), 0.5, 0.6)
+		camera_shake = max(camera_shake, 0.18)
 	boss.scale = Vector3.ONE * (1.2 + boss_phase * 0.12) * (1.0 + boss_flash * 0.9)
 	boss_flash = max(0.0, boss_flash - delta)
 
 func _process(delta: float) -> void:
+	if paused_game:
+		if hud:
+			hud.text = "GLYPH FALL  //  PAUSED\nPress P to resume"
+		return
 	t += delta
 	fire_cooldown = max(0.0, fire_cooldown - delta)
 	dash_cooldown = max(0.0, dash_cooldown - delta)
@@ -374,7 +392,7 @@ func _process(delta: float) -> void:
 	_step_pickups()
 	if hud:
 		var boss_line := "DEFEATED // press R to reset" if boss_defeated else "BOSS %02d/30 // PHASE %d" % [boss_hp, boss_phase]
-		hud.text = "GLYPH FALL  //  HP %d/5  //  SCORE %04d  //  DASH %s\n%s\nKILLS %02d  WAVE %02d\nWASD move  SHIFT dash  SPACE fire  R restart boss" % [player_hp, score, ("READY" if dash_cooldown <= 0.0 else "%.1f" % dash_cooldown), boss_line, kills, wave]
+		hud.text = "GLYPH FALL  //  HP %d/5  //  SCORE %04d  //  DASH %s\n%s\nKILLS %02d  WAVE %02d\nWASD move  SHIFT dash  SPACE fire  P pause  R restart boss" % [player_hp, score, ("READY" if dash_cooldown <= 0.0 else "%.1f" % dash_cooldown), boss_line, kills, wave]
 	if camera and player:
 		var shake := Vector3(sin(t * 71.0), 0, cos(t * 83.0)) * camera_shake
 		camera.translation = Vector3(player.translation.x, 7.0, player.translation.z + 12.0) + shake
