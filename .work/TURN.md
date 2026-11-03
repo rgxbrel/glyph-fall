@@ -135,3 +135,21 @@ game and will read this file when back.
 - crafting: FIRE RUNE now adds its authoritative +4 attack damage; direct sim assertion reported base=13/fire=17, crash fuzz stayed alive, and stable mmo2 held 60 fps with 0 client errors.
 - network: local player snapshots now restore persisted runes, keeping the forge HUD/state consistent after reconnect; node syntax check and mmo2 passed with 0 client errors, host health stayed green.
 - prototype-combat: Godot 3D ASCII prototype now has bounded WASD/arrow movement, nearest-target fire, projectile hit points, enemy pursuit and timed respawn; runtime validation under Xvfb/Godot 3.6 completed without script errors.
+- render: the atlas stride bug from the review was still live after the bilinear
+  rework (src/ascii.js indexed an RGBA buffer with a 1-byte stride). Fixed plus the
+  missing background term, measured A/B on the live host by stashing the file:
+  space ink 0.289 -> 0.000, dark tail now draws (@ 0.412, # 0.367, $ 0.322),
+  mean luminance 0.0141 -> 0.0740 against the reference 0.0779, pure-black pixels
+  42.8% -> 0%, |R-G| 4.36 (reference 4.36). mmo2 at 60 fps desktop/mobile, 0 errors
+  (22d97a2). Harness: /tmp/cmp/verify-render.js.
+- privacy: /health published names, tile coords, hp and the chat log to anyone
+  holding the sandbox URL. Now aggregate-only unless x-health-token matches
+  (4d47e46). Verified with /tmp/cmp/health_leak.js using a LEAKCANARY player.
+- harness flakiness root-caused, not a game bug: mmo2 deleted /tmp/cmp/p* profile
+  dirs at startup while chromium instances from a crashed earlier run still had
+  them open, which produced "connected: false" and "__game undefined". mmo2.js now
+  reaps those strays before cleaning. Two consecutive runs came back at 60 fps,
+  exactly 2 online, 0 errors.
+- checked, no change needed: the ghost players (BETA/HERALD) were live sockets of
+  those leaked browsers, not missing reaping. With all chromium killed, the host
+  dropped the last one within one 20 s heartbeat cycle.
