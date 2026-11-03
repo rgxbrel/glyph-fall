@@ -171,6 +171,28 @@ const httpSrv = createServer(async (req, res) => {
       chats: chats,
     }));
   }
+  if (req.url.startsWith('/rank')) {
+    const board = new Map();
+    for (const [name, save] of Object.entries(saves)) {
+      if (!save || typeof name !== 'string') continue;
+      board.set(name, {
+        name, kills: Number.isFinite(save.kills) ? Math.max(0, Math.floor(save.kills)) : 0,
+        level: Number.isFinite(save.level) ? Math.max(1, Math.floor(save.level)) : 1,
+        marks: Number.isFinite(save.marks) ? Math.max(0, Math.floor(save.marks)) : 0,
+      });
+    }
+    for (const p of Object.values(state.players)) {
+      board.set(p.name, {
+        name: p.name, kills: p.kills, level: p.level, marks: p.marks,
+      });
+    }
+    const ranking = [...board.values()]
+      .sort((a, b) => b.kills - a.kills || b.level - a.level || b.marks - a.marks)
+      .slice(0, 10)
+      .map((row, i) => ({ rank: i + 1, ...row }));
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    return res.end(JSON.stringify({ ok: true, ranking }));
+  }
   const rawPath = req.url.split('?')[0];
   if (rawPath === '/saves.json' || rawPath === '/.work/TURN.md' || rawPath.startsWith('/.')) { res.writeHead(404).end('not found'); return; }
   const rel = normalize(decodeURIComponent(req.url.split('?')[0]) || '/').replace(/^[/\\]+/, '');
