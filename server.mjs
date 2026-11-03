@@ -3,7 +3,8 @@
  * browser client only predicts its own avatar and interpolates everything else. */
 
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, writeFile, rename, stat } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
 import { generateMap } from './src/world.js';
@@ -22,6 +23,52 @@ spawnWorld(state, map);
 const clients = new Map(); // ws -> { pid, name, alive, lastMove }
 let pendingCmds = [];
 
+/* Progress belongs to the host, not the browser: a client-side save is gone the
+ * moment the phone changes. Keyed by name, because ids are per session. */
+const SAVE_FILE = join(ROOT, 'saves.json');
+const saves = (() => {
+  try {
+    const raw = JSON.parse(readFileSync(SAVE_FILE, 'utf8'));
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch { return {}; }
+})();
+
+function saveOf(p) {
+  return {
+    level: p.level, xp: p.xp, xpNext: p.xpNext, marks: p.marks, kills: p.kills,
+    hp: p.hp, hpMax: p.hpMax, mp: p.mp, mpMax: p.mpMax,
+    stats: p.stats, inv: p.inv, equip: p.equip, x: p.x, y: p.y,
+    savedAt: Date.now(),
+  };
+}
+
+let saveDirty = false;
+function markSaved(p) {
+  if (!p) return;
+  saves[p.name] = saveOf(p);
+  saveDirty = true;
+}
+
+async function flushSaves() {
+  if (!saveDirty) return;
+  saveDirty = false;
+  const tmp = `${SAVE_FILE}.tmp`;
+  try {
+    await writeFile(tmp, JSON.stringify(saves));
+    await rename(tmp, SAVE_FILE);
+  } catch (e) {
+    saveDirty = true;
+    console.error('save flush failed:', e.message);
+  }
+}
+/* A crash must not cost more than half a minute of progress, so the living are
+ * written too, not only the ones who log off. */
+setInterval(() => {
+  for (const c of clients.values()) markSaved(state.players[c.pid]);
+  flushSaves();
+}, 30000);
+process.on('SIGTERM', () => { flushSaves().finally(() => process.exit(0)); });
+
 function joinPlayer(ws, name) {
   const id = String(state.nextNetId++);
   state.players[id] = {
@@ -35,8 +82,25 @@ function joinPlayer(ws, name) {
     inx: 0, iny: 0,
   };
   clients.set(ws, { pid: id, name: state.players[id].name });
-  spawnPoint(state, map, state.players[id]);
-  state.log.push({ tick: state.tick, text: `${state.players[id].name} ARRIVED` });
+  const p = state.players[id];
+  const prev = saves[p.name];
+  if (prev && Number.isFinite(prev.level)) {
+    for (const k of ['level', 'xp', 'xpNext', 'marks', 'kills', 'hpMax', 'mpMax']) {
+      if (Number.isFinite(prev[k])) p[k] = prev[k];
+    }
+    p.hp = Number.isFinite(prev.hp) ? Math.min(prev.hp, p.hpMax) : p.hpMax;
+    p.mp = Number.isFinite(prev.mp) ? Math.min(prev.mp, p.mpMax) : p.mpMax;
+    if (prev.stats) p.stats = { str: 5, dex: 5, int: 5, ...prev.stats };
+    if (Array.isArray(prev.inv)) p.inv = prev.inv.slice(0, 24);
+    if (prev.equip) p.equip = { weapon: null, armor: null, ...prev.equip };
+    const x = Number(prev.x), y = Number(prev.y);
+    if (Number.isFinite(x) && Number.isFinite(y) && !map.solidAt(x, y)) { p.x = x; p.y = y; }
+    else spawnPoint(state, map, p);
+    state.log.push({ tick: state.tick, text: `${p.name} RETURNED LV${p.level}` });
+  } else {
+    spawnPoint(state, map, p);
+    state.log.push({ tick: state.tick, text: `${p.name} ARRIVED` });
+  }
   return id;
 }
 
@@ -44,7 +108,11 @@ function leavePlayer(ws) {
   const c = clients.get(ws);
   if (!c) return;
   const p = state.players[c.pid];
-  if (p) state.log.push({ tick: state.tick, text: `${p.name} DEPARTED` });
+  if (p) {
+    markSaved(p);
+    flushSaves();
+    state.log.push({ tick: state.tick, text: `${p.name} DEPARTED` });
+  }
   delete state.players[c.pid];
   clients.delete(ws);
 }

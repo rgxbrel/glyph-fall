@@ -217,12 +217,11 @@ function useItem(state, p, slot) {
   const s = p.inv[slot];
   if (!s) return;
   const it = ITEMS[s.id];
-  if (it.kind === 'consumable') {
-    if (it.heal) p.hp = Math.min(p.hpMax, p.hp + it.heal);
-    if (it.mana) p.mp = Math.min(p.mpMax, p.mp + it.mana);
-    s.qty--;
-    if (s.qty <= 0) p.inv.splice(slot, 1);
-  }
+  if (!it || it.kind !== 'consumable') return;
+  if (it.heal) p.hp = Math.min(p.hpMax, p.hp + it.heal);
+  if (it.mana) p.mp = Math.min(p.mpMax, p.mp + it.mana);
+  s.qty--;
+  if (s.qty <= 0) p.inv.splice(slot, 1);
 }
 
 function equipItem(state, p, slot) {

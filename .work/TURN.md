@@ -32,7 +32,7 @@ game and will read this file when back.
 
 1. DONE: Host survives a crash: wrap the tick in try/catch, add a supervisor that
    restarts `server.mjs` on exit, and log the last snapshot error to host.log.
-2. Server-side persistence: save players by name (level, xp, marks, stats, inv,
+2. DONE: Server-side persistence: save players by name (level, xp, marks, stats, inv,
    equip, position) to disk every 30 s and on leave, reload on join. The current
    client-side save is worthless in an MMO.
 3. Safe zone: no damage inside the spawn radius; show it as a ring of `†` glyphs.
@@ -71,6 +71,15 @@ game and will read this file when back.
 
 ## Log
 
+- persist: `saves.json` on the host, keyed by name; written on leave, every 30 s
+  while online, and on SIGTERM. Verified with `/tmp/cmp/persist.js`: used a herb
+  (qty 2→1), reconnected under a new id (56→57) and got qty 1 back with
+  `PERSIST RETURNED LV1`. Fields are validated on load, so a hand-edited save
+  cannot put an avatar inside a wall or at NaN.
+- regression caught by the test, not by me: my import shuffle dropped `stat` from
+  `node:fs/promises`, so the whole site served "not found" while `/health` stayed
+  green. Fixed. A green health endpoint is not proof the game loads.
+- fuzz: `use`/`equip` of an unknown item id threw inside the tick; both guarded.
 - host: `host.mjs` supervises `server.mjs` (backoff restart, gives up after 8 fast
   crashes) and holds `/tmp/glyphfall-host.lock`, so only one supervisor owns :8780.
   Verified: killing the host → health returns in ~3 s; a second supervisor stands
