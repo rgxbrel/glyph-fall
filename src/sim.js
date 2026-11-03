@@ -5,6 +5,7 @@
 
 import { makeRng } from './world.js';
 import { ITEMS, SKILLS } from './data.js';
+import { nextPathStep } from './path.js';
 
 export const TICK = 1 / 60;
 
@@ -359,7 +360,9 @@ function stepEnemies(state, map, dt) {
     }
 
     if (target) {
-      const a = Math.atan2(target.y - e.y, target.x - e.x);
+      const route = nextPathStep(map, e.x, e.y, target.x, target.y);
+      const aimX = route ? route.x : target.x, aimY = route ? route.y : target.y;
+      const a = Math.atan2(aimY - e.y, aimX - e.x);
       const d = Math.sqrt(best);
       if (d > e.r + target.r + 6) { vx = Math.cos(a) * e.speed; vy = Math.sin(a) * e.speed; }
       if (d < e.r + target.r + 16 && e.cd <= 0) {
