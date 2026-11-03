@@ -4,7 +4,8 @@
 
 import { createServer } from 'node:http';
 import { readFile, writeFile, rename, rm, stat } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
 import { generateMap } from './src/world.js';
@@ -24,6 +25,21 @@ spawnWorld(state, map);
 
 const clients = new Map(); // ws -> { pid, name, alive, lastMove, windowStart, cmdCount, chatCount }
 let pendingCmds = [];
+
+/* /health with player positions and chat is debug telemetry, and the sandbox URL
+ * it is served on is the same one shared for testing. Detail requires the token;
+ * anything else gets the aggregate. */
+const HEALTH_TOKEN_FILE = '/tmp/glyphfall-health-token';
+const HEALTH_TOKEN = (() => {
+  if (process.env.HOST_HEALTH_TOKEN) return process.env.HOST_HEALTH_TOKEN;
+  try {
+    const saved = readFileSync(HEALTH_TOKEN_FILE, 'utf8').trim();
+    if (saved) return saved;
+  } catch { /* no token file yet */ }
+  const fresh = randomBytes(16).toString('hex');
+  try { writeFileSync(HEALTH_TOKEN_FILE, fresh + '\n', { mode: 0o600 }); } catch { /* read-only /tmp */ }
+  return fresh;
+})();
 
 /* Progress belongs to the host, not the browser: a client-side save is gone the
  * moment the phone changes. Keyed by name, because ids are per session. */
@@ -168,7 +184,15 @@ const MIME = {
 
 const httpSrv = createServer(async (req, res) => {
   if (req.url.startsWith('/health')) {
+    const got = req.headers['x-health-token'];
+    const full = typeof got === 'string' && got.length > 0 && got === HEALTH_TOKEN;
     res.writeHead(200, { 'content-type': 'application/json' });
+    if (!full) {
+      return res.end(JSON.stringify({
+        ok: true, tick: state.tick, time: +state.time.toFixed(1),
+        online: Object.keys(state.players).length, chats: chats.length,
+      }));
+    }
     return res.end(JSON.stringify({
       ok: true, tick: state.tick, time: +state.time.toFixed(1),
       players: Object.values(state.players).map((p) => [p.name, Math.round(p.x), Math.round(p.y), p.inx, p.iny, p.hp]),
