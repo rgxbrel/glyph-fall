@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8"><title>Glyph Fall 3D ASCII Prototype</title>
+<style>html,body{margin:0;height:100%;background:#05070c;color:#c9ffe8;overflow:hidden;font:12px monospace}canvas{width:100%;height:100%;image-rendering:pixelated}#label{position:fixed;left:12px;top:10px;opacity:.7}</style>
+<canvas id="view"></canvas><div id="label">3D → ASCII PROTOTYPE · drag to orbit</div>
+<script>
+const out=document.querySelector('#view'), ctx=out.getContext('2d'), chars=' .,:;irsXA253hMHGS#9B&@', src=document.createElement('canvas'), sctx=src.getContext('2d');
+let W=0,H=0,t=0,yaw=.55,pitch=.55,drag=null;
+function resize(){W=out.width=innerWidth;H=out.height=innerHeight;src.width=Math.max(80,Math.floor(W/8));src.height=Math.max(40,Math.floor(H/14));}
+addEventListener('resize',resize); resize();
+out.onpointerdown=e=>{drag=[e.clientX,e.clientY];out.setPointerCapture(e.pointerId)};
+out.onpointermove=e=>{if(drag){yaw+=(e.clientX-drag[0])*.008;pitch=Math.max(.15,Math.min(1.2,pitch+(e.clientY-drag[1])*.006));drag=[e.clientX,e.clientY]}};
+out.onpointerup=()=>drag=null;
+function project(x,y,z){const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);const X=x*cy-z*sy,Z=x*sy+z*cy,Y=y*cp-Z*sp,D=Z*cp+y*sp+8;return [W*.5+X*W*.12/D,H*.58-Y*W*.12/D,D]}
+function line(a,b,col,w=1){ctx.strokeStyle=col;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke()}
+function scene(){ctx.fillStyle='#05070c';ctx.fillRect(0,0,W,H);const grid=12;for(let i=-grid;i<=grid;i++){const a=project(i,-1,-grid),b=project(i,-1,grid),c=project(-grid,-1,i),d=project(grid,-1,i);line(a,b,'rgba(40,105,75,.28)');line(c,d,'rgba(40,105,75,.28)')}
+const cube=[[[-.7,-1,-.7],[.7,-1,-.7],[.7,.4,-.7],[-.7,.4,-.7]],[[-.7,-1,.7],[.7,-1,.7],[.7,.4,.7],[-.7,.4,.7]],[[-.7,.4,-.7],[.7,.4,-.7],[.7,.4,.7],[-.7,.4,.7]]];for(const face of cube){ctx.fillStyle='rgba(78,180,125,.18)';ctx.strokeStyle='#7fe9c0';ctx.beginPath();face.forEach((v,i)=>{const q=project(v[0],v[1],v[2]);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])});ctx.closePath();ctx.fill();ctx.stroke()}const p=project(Math.sin(t)*3,-.96,Math.cos(t)*3);ctx.fillStyle='#ffd23f';ctx.beginPath();ctx.arc(p[0],p[1],5,0,7);ctx.fill();}
+function ascii(){sctx.drawImage(out,0,0,src.width,src.height);const d=sctx.getImageData(0,0,src.width,src.height).data, cw=W/src.width,ch=H/src.height;ctx.fillStyle='#05070c';ctx.fillRect(0,0,W,H);ctx.font=`${Math.max(8,Math.floor(ch))}px monospace`;ctx.textBaseline='top';for(let y=0;y<src.height;y++)for(let x=0;x<src.width;x++){const i=(y*src.width+x)*4,l=(d[i]*.299+d[i+1]*.587+d[i+2]*.114)/255;if(l<.035)continue;ctx.fillStyle=`rgb(${Math.min(255,d[i]*1.3)|0},${Math.min(255,d[i+1]*1.3)|0},${Math.min(255,d[i+2]*1.3)|0})`;ctx.fillText(chars[Math.min(chars.length-1,Math.floor(l*chars.length))],x*cw,y*ch)}}
+function frame(){t+=.015;scene();ascii();requestAnimationFrame(frame)}frame();
+</script>
