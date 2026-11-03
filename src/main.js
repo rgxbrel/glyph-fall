@@ -68,6 +68,13 @@ document.getElementById('onboardClose')?.addEventListener('click', dismissOnboar
 pass.setScale(1);
 const ZOOM = touch ? 2.8 : 3.4;
 pass.buildAtlas(); pass.buildTiles(); pass.buildCellMap();
+/* The atlas is rasterised from the bundled face. If the webfont has not landed yet
+ * the build above used the OS fallback, and every glyph would stay wrong for the
+ * whole session. Rebuild once document.fonts actually has it. */
+document.fonts?.load('bold 32px "GlyphMono"').then(() => {
+  pass.buildAtlas();
+  pass.buildTiles();
+});
 
 const ui = {
   inventoryOpen: false,

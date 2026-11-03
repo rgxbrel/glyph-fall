@@ -7,6 +7,15 @@
 <link rel="icon" href="data:," />
 <title>GLYPH FALL — ASCII MMORPG</title>
 <style>
+  /* Bundled so the ASCII atlas rasterizes the same on every machine. Without it the
+     glyph ramp silently depends on which monospace the player's OS happens to resolve.
+     Subset of DejaVu Sans Mono Bold — the face this app already fell back to here —
+     all 104 charset glyphs, 4.9 KB. DejaVu license: https://dejavu-fonts.github.io/License.html */
+  @font-face {
+    font-family: "GlyphMono";
+    src: url("assets/glyphmono.woff2") format("woff2");
+    font-weight: 700; font-style: normal; font-display: block;
+  }
   :root { --fg: #00ff88; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {

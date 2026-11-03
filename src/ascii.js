@@ -72,7 +72,7 @@ export class AsciiPass {
     const ax = a.getContext('2d', { willReadFrequently: true });
     ax.fillStyle = '#000'; ax.fillRect(0, 0, this.aW, this.aH);
     ax.fillStyle = '#fff';
-    ax.font = `bold ${l}px "JetBrains Mono", "SF Mono", "Fira Code", "DejaVu Sans Mono", monospace`;
+    ax.font = `bold ${l}px "GlyphMono", "JetBrains Mono", monospace`;
     ax.textBaseline = 'top'; ax.textRendering = 'geometricPrecision';
     for (let i = 0; i < this.N; i++)
       ax.fillText(this.chars[i], (i % cols) * this.acw, Math.floor(i / cols) * this.ach);
