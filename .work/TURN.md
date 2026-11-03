@@ -173,3 +173,10 @@ game and will read this file when back.
   server.mjs:291; name colour by level and a say radius are still open.
 - host note: two chromium-less ghost sockets cleared themselves within one 20 s
   heartbeat cycle after their browsers were killed; the reaper is fine.
+- CONCURRENT WRITER: a second Qoder session is live in this same tree
+  (`qodercli remote-control --name ultron-he --directory /data/workspace`, pid
+  201745). It committed 6 prototype/controls commits while I worked, and my
+  `git add src` for the shop swept up its uncommitted 'x' keybind AND dropped its
+  159aa4d D-pad click suppression. Restored in b1e280a. Until this is coordinated,
+  stage one file at a time and read `git diff --cached --stat` before every commit,
+  or work in a separate worktree.
