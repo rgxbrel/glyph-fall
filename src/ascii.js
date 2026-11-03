@@ -278,13 +278,18 @@ export class AsciiPass {
     const m4 = (midY * this.W + midX) * 4;
     const r = sd[m4], g = sd[m4 + 1], b = sd[m4 + 2];
     let cr, cg, cb;
+    const pp = this.processColor(r, g, b, this._pc);
     if (cfg.colorMode === 1) {
+      cr = cg = cb = (pp[0] * 0.299 + pp[1] * 0.587 + pp[2] * 0.114);
+    } else if (cfg.colorMode === 2) {
+      cr = cg = cb = mapped >= 0.5 ? 255 : 0;
+    } else if (cfg.colorMode === 3) {
+      const gray = pp[0] * 0.299 + pp[1] * 0.587 + pp[2] * 0.114;
+      cr = gray * 1.2; cg = gray; cb = gray * 0.8;
+    } else if (cfg.colorMode === 4) {
       const ph = hex2rgb(cfg.phosphor);
       cr = ph[0] * mapped; cg = ph[1] * mapped; cb = ph[2] * mapped;
-    } else if (cfg.colorMode === 2) {
-      cr = cg = cb = mapped * 255;
     } else {
-      const pp = this.processColor(r, g, b, this._pc);
       cr = pp[0]; cg = pp[1]; cb = pp[2];
     }
     this.cellR[i] = Math.min(255, cr * cfg.colorIntensity) | 0;

@@ -398,10 +398,10 @@ function buildUi() {
   });
   const modes = document.getElementById('modes');
   modes.textContent = '';
-  ['original', 'phosphor', 'mono'].forEach((m) => {
+  ['original', 'grayscale', 'mono', 'sepia'].forEach((m) => {
     const b = document.createElement('button');
     b.textContent = m;
-    b.onclick = () => { pass.cfg.colorMode = ['original', 'phosphor', 'mono'].indexOf(m); syncUi(); };
+    b.onclick = () => { pass.cfg.colorMode = ['original', 'grayscale', 'mono', 'sepia'].indexOf(m); syncUi(); };
     modes.appendChild(b);
   });
   const phos = document.getElementById('phos');
@@ -409,7 +409,7 @@ function buildUi() {
   ['#00ff88', '#00ff00', '#ffbf00', '#00ffff', '#ff4fa3'].forEach((c) => {
     const b = document.createElement('button');
     b.textContent = '●';
-    b.onclick = () => { pass.cfg.phosphor = c; pass.cfg.colorMode = 1; syncUi(); };
+    b.onclick = () => { pass.cfg.phosphor = c; pass.cfg.colorMode = 4; syncUi(); };
     phos.appendChild(b);
   });
   const fx = document.getElementById('fx');
