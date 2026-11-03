@@ -188,7 +188,11 @@ function damageEnemy(state, e, dmg, by) {
     gainXp(state, by, e.xp);
     by.kills++; by.marks += 3 + e.tier * 4;
     if (state.quest.active && !state.quest.turnedIn) state.quest.kills++;
-    if (rand(state) < 0.35) {
+    const dropRoll = rand(state);
+    if (dropRoll < 0.15) {
+      const id = String(state.nextNetId++);
+      state.pickups[id] = { id, kind: 'mana', x: e.x, y: e.y, taken: false };
+    } else if (dropRoll < 0.5) {
       const id = String(state.nextNetId++);
       state.pickups[id] = { id, kind: 'herb', x: e.x, y: e.y, taken: false };
     }
@@ -227,7 +231,7 @@ function interact(state, p) {
   for (const pk of Object.values(state.pickups)) {
     if (pk.taken) continue;
     if (Math.hypot(pk.x - p.x, pk.y - p.y) > 40) continue;
-    if (pk.kind === 'herb') { addItem(state, p, 'herb', 1); pk.taken = true; }
+    if (pk.kind === 'herb' || pk.kind === 'mana') { addItem(state, p, pk.kind, 1); pk.taken = true; }
     else if (pk.kind === 'chest') {
       const loot = rand(state) < 0.5 ? 'dagger' : rand(state) < 0.5 ? 'coat' : 'blade';
       addItem(state, p, loot, 1);
