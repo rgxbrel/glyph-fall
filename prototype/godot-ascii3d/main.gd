@@ -30,7 +30,6 @@ var boss_telegraph := 0.0
 var camera_shake := 0.0
 var kills := 0
 var wave := 1
-var paused_game := false
 var last_boss_phase := 1
 
 func _ready() -> void:
@@ -121,8 +120,6 @@ func _input(event: InputEvent) -> void:
 			_dash()
 		elif event.scancode == KEY_R and boss_defeated:
 			_reset_boss()
-		elif event.scancode == KEY_P:
-			paused_game = not paused_game
 
 func _move_vector() -> Vector3:
 	var v := Vector3()
@@ -209,7 +206,6 @@ func _reset_boss() -> void:
 	boss_attack = 2.0
 	boss_telegraph = 0.0
 	boss_defeated = false
-	paused_game = false
 	for shot in projectiles:
 		var old_node: Spatial = shot["node"]
 		old_node.queue_free()
@@ -344,10 +340,6 @@ func _step_boss(delta: float) -> void:
 	boss_flash = max(0.0, boss_flash - delta)
 
 func _process(delta: float) -> void:
-	if paused_game:
-		if hud:
-			hud.text = "GLYPH FALL  //  PAUSED\nPress P to resume"
-		return
 	t += delta
 	fire_cooldown = max(0.0, fire_cooldown - delta)
 	dash_cooldown = max(0.0, dash_cooldown - delta)
@@ -392,7 +384,7 @@ func _process(delta: float) -> void:
 	_step_pickups()
 	if hud:
 		var boss_line := "DEFEATED // press R to reset" if boss_defeated else "BOSS %02d/30 // PHASE %d" % [boss_hp, boss_phase]
-		hud.text = "GLYPH FALL  //  HP %d/5  //  SCORE %04d  //  DASH %s\n%s\nKILLS %02d  WAVE %02d\nWASD move  SHIFT dash  SPACE fire  P pause  R restart boss" % [player_hp, score, ("READY" if dash_cooldown <= 0.0 else "%.1f" % dash_cooldown), boss_line, kills, wave]
+		hud.text = "GLYPH FALL  //  HP %d/5  //  SCORE %04d  //  DASH %s\n%s\nKILLS %02d  WAVE %02d\nWASD move  SHIFT dash  SPACE fire  R restart boss" % [player_hp, score, ("READY" if dash_cooldown <= 0.0 else "%.1f" % dash_cooldown), boss_line, kills, wave]
 	if camera and player:
 		var shake := Vector3(sin(t * 71.0), 0, cos(t * 83.0)) * camera_shake
 		camera.translation = Vector3(player.translation.x, 7.0, player.translation.z + 12.0) + shake
