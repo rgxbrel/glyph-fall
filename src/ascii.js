@@ -255,25 +255,28 @@ export class AsciiPass {
     const cfg = this.cfg, i = cy * this.cellsX + cx, sd = this.sceneImg.data;
     if (this.cellDone[i] === this.frameTag) return i;
     this.cellDone[i] = this.frameTag;
-    // One textureSample at the cell centre, as the fragment shader does.
+    // Grainrad's match compute pass averages a sample grid over every cell,
+    // rather than using a single centre texel. Keep the same samples for both
+    // the fast brightness ramp and the spatial glyph matcher.
+    const ss = this.sigSide, stx = this.cellW / ss, sty = this.cellH / ss;
+    let mapped = 0;
+    for (let sy = 0; sy < ss; sy++) {
+      const py = Math.min(this.H - 1, Math.floor(cy * this.cellH + sy * sty + sty * 0.5));
+      const row = py * this.W;
+      for (let sx = 0; sx < ss; sx++) {
+        const px = Math.min(this.W - 1, Math.floor(cx * this.cellW + sx * stx + stx * 0.5));
+        const i4 = (row + px) * 4;
+        const sample = this.sourceBrightness(sd[i4], sd[i4 + 1], sd[i4 + 2]);
+        this.sigCache[sy * ss + sx] = sample;
+        mapped += sample;
+      }
+    }
+    mapped /= this.SIG_N;
+    this.cellChar[i] = this.pickChar(this.sigCache, mapped);
     const midX = Math.min(this.W - 1, Math.floor((cx + 0.5) * this.cellW));
     const midY = Math.min(this.H - 1, Math.floor((cy + 0.5) * this.cellH));
     const m4 = (midY * this.W + midX) * 4;
     const r = sd[m4], g = sd[m4 + 1], b = sd[m4 + 2];
-    const mapped = this.sourceBrightness(r, g, b);
-    if (cfg.brightnessWeight < 0.99) {
-      const ss = this.sigSide, stx = this.cellW / ss, sty = this.cellH / ss;
-      for (let sy = 0; sy < ss; sy++) {
-        const py = Math.min(this.H - 1, Math.floor(cy * this.cellH + sy * sty + sty * 0.5));
-        const row = py * this.W;
-        for (let sx = 0; sx < ss; sx++) {
-          const px = Math.min(this.W - 1, Math.floor(cx * this.cellW + sx * stx + stx * 0.5));
-          const i4 = (row + px) * 4;
-          this.sigCache[sy * ss + sx] = this.sourceBrightness(sd[i4], sd[i4 + 1], sd[i4 + 2]);
-        }
-      }
-    }
-    this.cellChar[i] = this.pickChar(this.sigCache, mapped);
     let cr, cg, cb;
     if (cfg.colorMode === 1) {
       const ph = hex2rgb(cfg.phosphor);
