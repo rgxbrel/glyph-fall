@@ -11,6 +11,12 @@ var enemy_respawn := []
 var projectiles := []
 var fire_cooldown := 0.0
 var player_speed := 5.5
+var dash_cooldown := 0.0
+var dash_time := 0.0
+var hud: Label
+var score := 0
+var pickups := []
+var boss_defeated := false
 var boss: Spatial
 var boss_ring: Spatial
 var boss_hp := 30
@@ -32,6 +38,7 @@ func _ready() -> void:
 	camera.look_at_from_position(camera.translation, Vector3(0, 0, 0), Vector3.UP)
 	add_child(camera)
 	_make_light()
+	_make_hud()
 	_make_ground()
 	player = _make_actor(Color("7fe9c0"), Vector3(0, 1, 0), 0.8)
 	for i in range(7):
@@ -43,6 +50,19 @@ func _ready() -> void:
 	boss.scale = Vector3(1.4, 1.4, 1.4)
 	boss_ring = _make_actor(Color("ff527d"), Vector3(0, 0.08, -6), 1.0)
 	boss_ring.scale = Vector3(3.2, 0.08, 3.2)
+
+func _make_hud() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 20
+	hud = Label.new()
+	hud.rect_position = Vector2(18, 14)
+	hud.add_color_override("font_color", Color("b8ffe0"))
+	hud.add_color_override("font_shadow_color", Color("05070c"))
+	hud.add_constant_override("shadow_offset_x", 2)
+	hud.add_constant_override("shadow_offset_y", 2)
+	hud.text = "GLYPH FALL // loading"
+	layer.add_child(hud)
+	add_child(layer)
 
 func _make_light() -> void:
 	var light := OmniLight.new()
@@ -84,8 +104,13 @@ func _make_actor(color: Color, pos: Vector3, radius: float) -> Spatial:
 	return node
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.scancode == KEY_SPACE:
-		_fire()
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.scancode == KEY_SPACE:
+			_fire()
+		elif event.scancode == KEY_SHIFT:
+			_dash()
+		elif event.scancode == KEY_R and boss_defeated:
+			_reset_boss()
 
 func _move_vector() -> Vector3:
 	var v := Vector3()
@@ -132,6 +157,45 @@ func _respawn_enemy(index: int) -> void:
 	enemy.visible = true
 	enemy_hp[index] = 3
 
+func _dash() -> void:
+	if dash_cooldown > 0.0 or not player:
+		return
+	var direction := _move_vector()
+	if direction.length_squared() <= 0.0:
+		direction = Vector3(0, 0, -1)
+	player.translation += direction * 2.4
+	dash_cooldown = 1.4
+	dash_time = 0.18
+
+func _spawn_pickup(pos: Vector3, kind: String) -> void:
+	var color := Color("70b7ff") if kind == "mana" else Color("ffd166")
+	var node := _make_actor(color, Vector3(pos.x, 0.5, pos.z), 0.22)
+	pickups.append({"node": node, "kind": kind})
+
+func _reset_boss() -> void:
+	boss_hp = 30
+	boss_phase = 1
+	boss_attack = 2.0
+	boss_telegraph = 0.0
+	boss_defeated = false
+	boss.visible = true
+	boss_ring.visible = false
+	boss.translation = Vector3(0, 0.95, -6)
+
+func _step_pickups() -> void:
+	for i in range(pickups.size() - 1, -1, -1):
+		var item: Dictionary = pickups[i]
+		var node: Spatial = item["node"]
+		node.translation.y = 0.5 + sin(t * 3.0 + i) * 0.12
+		if node.translation.distance_to(player.translation) < 1.1:
+			if item["kind"] == "heart":
+				player_hp = min(5, player_hp + 2)
+			else:
+				dash_cooldown = 0.0
+				score += 25
+			node.queue_free()
+			pickups.remove(i)
+
 func _step_projectiles(delta: float) -> void:
 	for i in range(projectiles.size() - 1, -1, -1):
 		var shot: Dictionary = projectiles[i]
@@ -150,10 +214,15 @@ func _step_projectiles(delta: float) -> void:
 				break
 		if not remove and boss and boss.visible and node.translation.distance_to(boss.translation) < 1.35:
 			boss_hp -= 1
+			score += 5
 			remove = true
 			if boss_hp <= 0:
 				boss.visible = false
 				boss_ring.visible = false
+				boss_defeated = true
+				score += 500
+				_spawn_pickup(boss.translation, "heart")
+				_spawn_pickup(boss.translation + Vector3(1, 0, 0), "mana")
 		if remove:
 			node.queue_free()
 			projectiles.remove(i)
@@ -192,6 +261,8 @@ func _step_boss(delta: float) -> void:
 func _process(delta: float) -> void:
 	t += delta
 	fire_cooldown = max(0.0, fire_cooldown - delta)
+	dash_cooldown = max(0.0, dash_cooldown - delta)
+	dash_time = max(0.0, dash_time - delta)
 	player_iframes = max(0.0, player_iframes - delta)
 	if player:
 		var movement := _move_vector()
@@ -224,6 +295,10 @@ func _process(delta: float) -> void:
 					player_hp = 5
 					player.translation = Vector3(0, 1, 0)
 	_step_boss(delta)
+	_step_pickups()
+	if hud:
+		var boss_line := "DEFEATED // press R to reset" if boss_defeated else "BOSS %02d/30 // PHASE %d" % [boss_hp, boss_phase]
+		hud.text = "GLYPH FALL  //  HP %d/5  //  SCORE %04d  //  DASH %s\n%s\nWASD move  SHIFT dash  SPACE fire  R restart boss" % [player_hp, score, ("READY" if dash_cooldown <= 0.0 else "%.1f" % dash_cooldown), boss_line]
 	if camera and player:
 		camera.translation = Vector3(player.translation.x, 7.0, player.translation.z + 12.0)
 		camera.look_at_from_position(camera.translation, player.translation, Vector3.UP)
