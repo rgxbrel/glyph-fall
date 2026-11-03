@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GLYPH FALL — ASCII action RPG</title>
+<style>
+  :root { --fg: #00ff88; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #05070c; color: #cfe; overflow: hidden; }
+  body { font: 11px/1.5 ui-monospace, "DejaVu Sans Mono", monospace; display: flex; }
+  #stage { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; }
+  #out { image-rendering: pixelated; background: #000; box-shadow: 0 0 60px rgba(0,255,136,.08); }
+  #panel {
+    width: 262px; padding: 14px; background: #080b10; border-left: 1px solid #143024;
+    overflow-y: auto; flex-shrink: 0;
+  }
+  #panel.hidden { display: none; }
+  #panel h1 { font-size: 12px; margin: 0 0 10px; letter-spacing: .12em; color: var(--fg); }
+  #panel h2 { font-size: 10px; margin: 14px 0 6px; color: #4fa; opacity: .7; letter-spacing: .1em; }
+  #panel button {
+    background: #0d1418; color: #9fddc2; border: 1px solid #1d3a2c; border-radius: 2px;
+    font: inherit; font-size: 10px; letter-spacing: .05em; padding: 4px 7px; margin: 0 3px 3px 0;
+    cursor: pointer;
+  }
+  #panel button.on { background: var(--fg); color: #04120b; border-color: var(--fg); }
+  #panel label { display: block; margin: 8px 0; color: #7fbfa4; }
+  #panel .val { float: right; color: var(--fg); }
+  #panel input[type=range] { width: 100%; accent-color: var(--fg); }
+  #panel kbd { background: #0d1418; border: 1px solid #1d3a2c; padding: 1px 4px; border-radius: 2px; color: var(--fg); }
+  #hud { position: fixed; left: 10px; bottom: 8px; color: #2c6b52; font-size: 10px; }
+</style>
+</head>
+<body>
+  <div id="stage"><canvas id="out"></canvas></div>
+
+  <aside id="panel">
+    <h1>GLYPH FALL</h1>
+    <button id="startBtn">NEW WORLD</button>
+    <button id="saveBtn">SAVE [P]</button>
+    <button id="panelBtn">HIDE [H]</button>
+
+    <h2>CHARSET</h2>
+    <div id="sets"></div>
+
+    <h2>COLOR</h2>
+    <div id="modes"></div>
+    <div id="phos"></div>
+    <button id="invBtn">INVERT</button>
+
+    <label>scale <span class="val" id="scaleV"></span>
+      <input type="range" id="scale" min="1" max="6" step="1" value="2" /></label>
+    <label>spacing <span class="val" id="spacingV"></span>
+      <input type="range" id="spacing" min="0" max="2" step="0.05" value="0" /></label>
+    <label>brightness weight <span class="val" id="bwV"></span>
+      <input type="range" id="bw" min="0" max="1" step="0.05" value="1" /></label>
+    <label>color intensity <span class="val" id="ciV"></span>
+      <input type="range" id="ci" min="0" max="2" step="0.05" value="1" /></label>
+    <label>image brightness <span class="val" id="brV"></span>
+      <input type="range" id="br" min="-100" max="100" step="1" value="0" /></label>
+    <label>contrast <span class="val" id="coV"></span>
+      <input type="range" id="co" min="-100" max="100" step="1" value="0" /></label>
+    <label>gamma <span class="val" id="gmV"></span>
+      <input type="range" id="gm" min="0.3" max="3" step="0.05" value="1" /></label>
+
+    <h2>POST FX</h2>
+    <div id="fx"></div>
+    <label>chromatic offset <span class="val" id="chV"></span>
+      <input type="range" id="ch" min="0" max="12" step="1" value="2" /></label>
+    <label>scanline opacity <span class="val" id="soV"></span>
+      <input type="range" id="so" min="0" max="0.6" step="0.01" value="0.1" /></label>
+    <label>bloom intensity <span class="val" id="blV"></span>
+      <input type="range" id="bl" min="0" max="2" step="0.05" value="1.5" /></label>
+
+    <h2>TECLAS</h2>
+    <div>
+      <kbd>wasd</kbd>/<kbd>setas</kbd> andar · <kbd>j</kbd> atacar · <kbd>l</kbd> spark<br />
+      <kbd>e</kbd> interagir/usar · <kbd>q</kbd> quest · <kbd>u</kbd> equipar · <kbd>i</kbd> bolsa<br />
+      <kbd>1-9</kbd> charset · <kbd>t</kbd> cicla charset · <kbd>c</kbd> cores · <kbd>[ ]</kbd> scale<br />
+      <kbd>g</kbd> grão · <kbd>n</kbd> scanlines · <kbd>b</kbd> bloom · <kbd>v</kbd> vinheta · <kbd>r</kbd> crt<br />
+      <kbd>m</kbd> match quality · <kbd>p</kbd> salvar · <kbd>h</kbd> painel
+    </div>
+  </aside>
+  <div id="hud"><span id="fps"></span></div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
