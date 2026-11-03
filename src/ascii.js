@@ -25,7 +25,10 @@ export class AsciiPass {
       scanlines: false, scanlineOpacity: 0.1, scanlineSpacing: 4,
       vignette: false, vignetteIntensity: 0.5, vignetteRadius: 0.5,
       crt: false, crtAmount: 0.1,
-      bg: 0xff000000,
+      // Empty space is the background colour, not black: the original does
+      // mix(backgroundColor, finalColor, charIntensity). #0e1217 is the floor
+      // measured off the reference frame (rea/glyph-fall-render/evidence).
+      bg: 0xff17120e,
     };
     this.time = 0;
     this.frameTag = 0;
@@ -87,7 +90,7 @@ export class AsciiPass {
           const bx = Math.floor(sx * this.acw / ss), ex = Math.min(this.acw, Math.floor((sx + 1) * this.acw / ss));
           let sum = 0, cnt = 0;
           for (let y = by; y < ey; y++)
-            for (let x = bx; x < ex; x++) { sum += this.atlas[(oy + y) * this.aW + (ox + x)]; cnt++; }
+            for (let x = bx; x < ex; x++) { sum += this.atlas[((oy + y) * this.aW + (ox + x)) * 4]; cnt++; }
           this.sigs[ci * this.SIG_N + sy * ss + sx] = cnt ? sum / (cnt * 255) : 0;
         }
       }
@@ -123,8 +126,11 @@ export class AsciiPass {
             const y0 = Math.max(0, Math.min(this.aH - 1, Math.floor(ayf)));
             const y1 = Math.max(0, Math.min(this.aH - 1, y0 + 1));
             const xf = axf - Math.floor(axf), yf = ayf - Math.floor(ayf);
-            const top = this.atlas[y0 * this.aW + x0] + (this.atlas[y0 * this.aW + x1] - this.atlas[y0 * this.aW + x0]) * xf;
-            const bottom = this.atlas[y1 * this.aW + x0] + (this.atlas[y1 * this.aW + x1] - this.atlas[y1 * this.aW + x0]) * xf;
+            // the atlas is RGBA: 4 bytes per texel, and the red channel is at +0
+            const i00 = (y0 * this.aW + x0) * 4, i01 = (y0 * this.aW + x1) * 4;
+            const i10 = (y1 * this.aW + x0) * 4, i11 = (y1 * this.aW + x1) * 4;
+            const top = this.atlas[i00] + (this.atlas[i01] - this.atlas[i00]) * xf;
+            const bottom = this.atlas[i10] + (this.atlas[i11] - this.atlas[i10]) * xf;
             mask = top + (bottom - top) * yf;
           }
           this.tiles[ci * tw * th + py * tw + px] = mask;
@@ -328,6 +334,7 @@ export class AsciiPass {
     const vOn = cfg.vignette, vr = cfg.vignetteRadius, vInt = cfg.vignetteIntensity;
     const vDenom = Math.max(0.001, 1 - vr);
     const bg = cfg.bg;
+    const bgR = bg & 255, bgG = (bg >> 8) & 255, bgB = (bg >> 16) & 255;
     const scanTable = this.scanTable, vigX = this.vigX, vigY = this.vigY;
 
     let o = 0;
@@ -352,12 +359,12 @@ export class AsciiPass {
           ci = pxCell[o]; tx = pxTx[o]; ty = pxTy[o];
         }
         const mask = tileMask[cellChar[ci] * tsize + ty * tw + tx] * 0.00392156862745098;
-        let R = cellR[ci] * mask, G = cellG[ci] * mask, B = cellB[ci] * mask;
+        let R = bgR + (cellR[ci] - bgR) * mask, G = bgG + (cellG[ci] - bgG) * mask, B = bgB + (cellB[ci] - bgB) * mask;
         if (chroma) {
           const cx0 = (x * invCW) | 0, cy = (y * invCH) | 0;
           const xa = x - chroma, xb = x + chroma;
-          if (xa >= 0) { const ca = (xa * invCW) | 0; if (ca !== cx0) R = cellR[this.resolveCell(Math.min(this.cellsX - 1, ca), cy)] * mask; }
-          if (xb < W) { const cb2 = (xb * invCW) | 0; if (cb2 !== cx0) B = cellB[this.resolveCell(Math.min(this.cellsX - 1, cb2), cy)] * mask; }
+          if (xa >= 0) { const ca = (xa * invCW) | 0; if (ca !== cx0) R = bgR + (cellR[this.resolveCell(Math.min(this.cellsX - 1, ca), cy)] - bgR) * mask; }
+          if (xb < W) { const cb2 = (xb * invCW) | 0; if (cb2 !== cx0) B = bgB + (cellB[this.resolveCell(Math.min(this.cellsX - 1, cb2), cy)] - bgB) * mask; }
         }
         let k = rowK;
         if (vOn) {
