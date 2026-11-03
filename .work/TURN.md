@@ -133,3 +133,4 @@ game and will read this file when back.
 
 - qoder-handoff: applied the review finding that `†` is outside supported glyphs; safe-zone ring now uses `+`, present in every relevant charset. look stayed at 60 fps and safe_live still blocked plaza damage/resumed it at 264px (be0e863).
 - crafting: FIRE RUNE now adds its authoritative +4 attack damage; direct sim assertion reported base=13/fire=17, crash fuzz stayed alive, and stable mmo2 held 60 fps with 0 client errors.
+- network: local player snapshots now restore persisted runes, keeping the forge HUD/state consistent after reconnect; node syntax check and mmo2 passed with 0 client errors, host health stayed green.
