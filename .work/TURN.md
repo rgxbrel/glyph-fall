@@ -180,3 +180,18 @@ game and will read this file when back.
   159aa4d D-pad click suppression. Restored in b1e280a. Until this is coordinated,
   stage one file at a time and read `git diff --cached --stat` before every commit,
   or work in a separate worktree.
+
+- 2026-11-03 (fidelity, "igual o original"): the port truncated every source
+  sample to the nearest texel; the original fetches through a linear,
+  clamp-to-edge sampler (`gpu.pretty.js:176`) and sets cellSize =
+  sourceSize / gridSize (`gpu.pretty.js:620`). Added `sampleSource()` (4-tap
+  bilinear, clamp-to-edge) and used it for both the compute taps and the
+  fragment's centre colour; UVs now come from `W/cellsX`, not the nominal 9.6.
+  Measured on one frozen frame, same scene, grain off, A/B by swapping only the
+  sampler at runtime (`.work/filter_ab.cjs`): 10.9% of cells (1390/12750) change
+  glyph, 76% of those by a single ramp index; cell colour RMS 2.77/255, worst
+  texel 82. Aggregate look is a tie against the reference frame (distance 0.3009
+  bilinear vs 0.2915 nearest, mean identical 0.0728) — this change is about
+  matching the recovered algorithm, not about moving the histogram. Gates green:
+  mmo2 60 fps / errs [] on both viewports, look.js 60 fps desk + mob.
+  Evidence: rea/glyph-fall-render/evidence/filter-ab.txt.
