@@ -78,6 +78,8 @@ export function spawnWorld(state, map) {
   const rng = makeRng(state.seed ^ 0x9e3779b9);
   for (const pr of map.props) {
     if (pr.kind === 'enemy') {
+      // Keep procedural enemy props out of the protected plaza as well as AI movement.
+      if (inSafeZone(state, map, pr.x, pr.y)) continue;
       const base = ENEMY_KINDS[Math.min(2, pr.tier)];
       const id = String(state.nextNetId++);
       state.enemies[id] = {
