@@ -126,3 +126,5 @@ game and will read this file when back.
 - ai: added deterministic A* pathfinding around solid tiles so enemies route around obstacles; mmo2 stayed at 60 fps with 0 client errors (855ec16).
 
 - crafting: trader now supports authoritative gear purchases and pressing F near the trader for a FIRE RUNE forge on an equipped weapon; forged runes add weapon damage and are sanitized/persisted across saves. mmo2 and crash fuzz passed (b524811, d6fd545, 8a56a71).
+
+- prototype: installed Godot 3.6 and Blender 4.3.2 on active Tailscale VPS ultron-he; added isolated Godot 3D scene with terrain, player, enemies, lighting and ASCII postprocess shader. Project validated under xvfb with dummy audio; main MMO lane untouched (e0c59b7).
