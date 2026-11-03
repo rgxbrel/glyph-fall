@@ -33,6 +33,7 @@ export class AsciiPass {
     this.time = 0;
     this.frameTag = 0;
     this._pc = [0, 0, 0];
+    this._sc = [0, 0, 0];
     this.setQuality('fast');
   }
 
@@ -156,6 +157,10 @@ export class AsciiPass {
     this.cellsY = Math.max(16, Math.floor((availH * 0.98) / this.cellH));
     this.W = Math.floor(this.cellsX * this.cellW);
     this.H = this.cellsY * this.cellH;
+    // The host gives both passes cellSize = sourceSize / gridSize, so the source
+    // footprint of a cell is W/cellsX, not the nominal 9.6 (gpu.pretty.js:620).
+    this.srcW = this.W / this.cellsX;
+    this.srcH = this.H / this.cellsY;
     this.out.width = this.W; this.out.height = this.H;
     this.sceneC.width = this.W; this.sceneC.height = this.H;
     this.bloomC.width = this.W; this.bloomC.height = this.H;
@@ -207,6 +212,31 @@ export class AsciiPass {
       const on = cfg.scanlines && cfg.scanlineOpacity > 0 && (y % (sp * 2)) < sp;
       this.scanTable[y] = on ? 1 - cfg.scanlineOpacity : 1;
     }
+  }
+
+  // textureSample through the host sampler: linear filter, clamp-to-edge
+  // (gpu.pretty.js:176). A texel centre sits at uv * size - 0.5, so a fractional
+  // uv blends four texels instead of truncating to one.
+  sampleSource(uvX, uvY, o) {
+    const W = this.W, H = this.H, sd = this.sceneImg.data;
+    const tx = uvX * W - 0.5, ty = uvY * H - 0.5;
+    const xi = Math.floor(tx), yi = Math.floor(ty);
+    const fx = tx - xi, fy = ty - yi;
+    const x0 = xi < 0 ? 0 : xi > W - 1 ? W - 1 : xi;
+    const x1 = xi + 1 < 0 ? 0 : xi + 1 > W - 1 ? W - 1 : xi + 1;
+    const y0 = yi < 0 ? 0 : yi > H - 1 ? H - 1 : yi;
+    const y1 = yi + 1 < 0 ? 0 : yi + 1 > H - 1 ? H - 1 : yi + 1;
+    const r00 = sd[(y0 * W + x0) * 4], g00 = sd[(y0 * W + x0) * 4 + 1], b00 = sd[(y0 * W + x0) * 4 + 2];
+    const r01 = sd[(y0 * W + x1) * 4], g01 = sd[(y0 * W + x1) * 4 + 1], b01 = sd[(y0 * W + x1) * 4 + 2];
+    const r10 = sd[(y1 * W + x0) * 4], g10 = sd[(y1 * W + x0) * 4 + 1], b10 = sd[(y1 * W + x0) * 4 + 2];
+    const r11 = sd[(y1 * W + x1) * 4], g11 = sd[(y1 * W + x1) * 4 + 1], b11 = sd[(y1 * W + x1) * 4 + 2];
+    const rt = r00 + (r01 - r00) * fx, rb = r10 + (r11 - r10) * fx;
+    const gt = g00 + (g01 - g00) * fx, gb = g10 + (g11 - g10) * fx;
+    const bt = b00 + (b01 - b00) * fx, bb = b10 + (b11 - b10) * fx;
+    o[0] = rt + (rb - rt) * fy;
+    o[1] = gt + (gb - gt) * fy;
+    o[2] = bt + (bb - bt) * fy;
+    return o;
   }
 
   // The compute shader's source-brightness chain, in operation order.
@@ -267,31 +297,30 @@ export class AsciiPass {
   }
 
   resolveCell(cx, cy) {
-    const cfg = this.cfg, i = cy * this.cellsX + cx, sd = this.sceneImg.data;
+    const cfg = this.cfg, i = cy * this.cellsX + cx;
     if (this.cellDone[i] === this.frameTag) return i;
     this.cellDone[i] = this.frameTag;
     // Grainrad's match compute pass averages a sample grid over every cell,
     // rather than using a single centre texel. Keep the same samples for both
     // the fast brightness ramp and the spatial glyph matcher.
-    const ss = this.sigSide, stx = this.cellW / ss, sty = this.cellH / ss;
+    const ss = this.sigSide, inv = 1 / ss, sc = this._sc;
     let mapped = 0;
     for (let sy = 0; sy < ss; sy++) {
-      const py = Math.min(this.H - 1, Math.floor(cy * this.cellH + sy * sty + sty * 0.5));
-      const row = py * this.W;
+      const uvY = (cy + (sy + 0.5) * inv) / this.cellsY;
       for (let sx = 0; sx < ss; sx++) {
-        const px = Math.min(this.W - 1, Math.floor(cx * this.cellW + sx * stx + stx * 0.5));
-        const i4 = (row + px) * 4;
-        const sample = this.sourceBrightness(sd[i4], sd[i4 + 1], sd[i4 + 2]);
+        const uvX = (cx + (sx + 0.5) * inv) / this.cellsX;
+        this.sampleSource(uvX, uvY, sc);
+        const sample = this.sourceBrightness(sc[0], sc[1], sc[2]);
         this.sigCache[sy * ss + sx] = sample;
         mapped += sample;
       }
     }
     mapped /= this.SIG_N;
     this.cellChar[i] = this.pickChar(this.sigCache, mapped);
-    const midX = Math.min(this.W - 1, Math.floor((cx + 0.5) * this.cellW));
-    const midY = Math.min(this.H - 1, Math.floor((cy + 0.5) * this.cellH));
-    const m4 = (midY * this.W + midX) * 4;
-    const r = sd[m4], g = sd[m4 + 1], b = sd[m4 + 2];
+    const cu = Math.min(1, Math.max(0, (cx + 0.5) / this.cellsX));
+    const cv = Math.min(1, Math.max(0, (cy + 0.5) / this.cellsY));
+    this.sampleSource(cu, cv, sc);
+    const r = sc[0], g = sc[1], b = sc[2];
     let cr, cg, cb;
     const pp = this.processColor(r, g, b, this._pc);
     if (cfg.colorMode === 1) {
