@@ -4,6 +4,7 @@
 
 import { TILE, T } from './world.js';
 import { ITEMS } from './data.js';
+import { SAFE_RADIUS } from './sim.js';
 
 const TILE_COLOR = ['#122618', '#2e2411', '#8c94a8', '#12384f', '#1a4a26', '#8a743c'];
 const TILE_EDGE = ['#2f6b41', '#6b5024', '#dfe6f5', '#4fb3e8', '#57c47a', '#e6cd80'];
@@ -18,7 +19,7 @@ function shade(hex, k, cool = 0) {
   return `rgb(${m(r, 22)},${m(g, 34)},${m(b, 56)})`;
 }
 const GROUND = TILE_COLOR.map((c) => shade(c, NIGHT, 0.3));
-const DETAIL = [0.5, 0.45, 0.3, 0.35, 0.5, 0.45].map((k, i) => shade(TILE_EDGE[i], k));
+const DETAIL = [0.12, 0.1, 0.08, 0.09, 0.12, 0.1].map((k, i) => shade(TILE_EDGE[i], k));
 
 export function drawScene(g, state, map, cam, W, H, ui, zoom = 1) {
   const cells = W / ((ui && ui.cellW) || 10);
@@ -61,6 +62,21 @@ export function drawScene(g, state, map, cam, W, H, ui, zoom = 1) {
       }
     }
   }
+
+  /* The safe plaza as a ring of daggers on the ground: it is drawn after the
+   * tiles, which paint over anything beneath them, and as glyphs so the ASCII
+   * pass reproduces it instead of flattening a coloured line. */
+  g.save();
+  g.fillStyle = 'rgba(126,233,192,0.75)';
+  g.font = `700 ${px(14)}px ui-monospace, monospace`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const ringN = 56;
+  for (let i = 0; i < ringN; i++) {
+    const a = (i / ringN) * 6.283185;
+    g.fillText('†', map.spawn.x + Math.cos(a) * SAFE_RADIUS,
+      snapY(map.spawn.y + Math.sin(a) * SAFE_RADIUS));
+  }
+  g.restore();
 
   for (const pk of Object.values(state.pickups)) {
     if (pk.taken) continue;
@@ -109,7 +125,7 @@ export function drawScene(g, state, map, cam, W, H, ui, zoom = 1) {
   }
 
   for (const pr of Object.values(state.projectiles)) {
-    g.fillStyle = '#7fe9ff';
+    g.fillStyle = pr.skill === 'frost' ? '#b9a7ff' : '#7fe9ff';
     g.beginPath(); g.arc(pr.x, pr.y, 6, 0, 6.283); g.fill();
     g.fillStyle = 'rgba(127,233,255,0.4)';
     g.beginPath(); g.arc(pr.x - pr.vx * 0.02, pr.y - pr.vy * 0.02, 9, 0, 6.283); g.fill();
@@ -120,7 +136,7 @@ export function drawScene(g, state, map, cam, W, H, ui, zoom = 1) {
 
   drawAmbient(g, state, W, H);
   drawWeather(g, state, W, H);
-  drawHud(g, state, W, H, ui, px);
+  drawHud(g, state, map, W, H, ui, px);
 }
 
 /* Sparse drifting sparks: they are the only bright noise on an almost black
@@ -225,7 +241,7 @@ function drawActor(g, p, state, px, rowH, snapY) {
   }
 }
 
-function drawHud(g, state, W, H, ui, px) {
+function drawHud(g, state, map, W, H, ui, px) {
   const p = state.players[state.local];
   if (!p) return;
   const barW = Math.min(px(120), W * 0.26);
@@ -238,7 +254,8 @@ function drawHud(g, state, W, H, ui, px) {
   g.fillText(`LV${p.level} ${p.xp}/${p.xpNext}`, barW + 14, px(20));
   const wep = p.equip.weapon ? ITEMS[p.equip.weapon].name : 'FISTS';
   g.fillStyle = '#8fe8b0';
-  g.fillText(`${state.online ? state.online + ' ONLINE ' : 'OFFLINE '}${wep} ${p.marks}m`, barW + px(112), px(20));
+  const safe = Math.hypot(p.x - map.spawn.x, p.y - map.spawn.y) < SAFE_RADIUS;
+  g.fillText(`${state.online ? state.online + ' ONLINE ' : 'OFFLINE '}${wep} ${p.marks}m${safe ? ' · SAFE' : ''}`, barW + px(112), px(20));
   if (state.quest.active && !state.quest.turnedIn) {
     g.fillStyle = '#ffd23f'; g.textAlign = 'right';
     g.fillText(`QUEST ${state.quest.kills}/5`, W - 8, px(20));

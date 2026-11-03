@@ -39,6 +39,15 @@ export function createState(seed, names = ['HERALD']) {
   return state;
 }
 
+/* The plaza around the spawn: the 5x5 cleared tiles, and the same size on screen
+ * so the boundary ring is visible from the middle of it. Nothing can be hurt
+ * inside and nothing hostile is allowed in, so a new player can read the screen
+ * in peace. */
+export const SAFE_RADIUS = 80;
+export function inSafeZone(state, map, x, y) {
+  return Math.hypot(x - map.spawn.x, y - map.spawn.y) < SAFE_RADIUS;
+}
+
 function makePlayer(id, name) {
   return {
     id, name, x: 0, y: 0, vx: 0, vy: 0, r: 12, face: 0, anim: 0,
@@ -92,13 +101,13 @@ const unit = (v) => {
   return Number.isFinite(n) ? Math.max(-1, Math.min(1, n)) : 0;
 };
 
-export function applyCommand(state, tick, playerId, cmd) {
+export function applyCommand(state, tick, playerId, cmd, map) {
   const p = state.players[playerId];
   if (!p || typeof cmd !== 'object' || cmd === null) return;
   if (p.dead && cmd.t !== 'move') return;
   switch (cmd.t) {
     case 'move': p.inx = unit(cmd.dx); p.iny = unit(cmd.dy); break;
-    case 'attack': attack(state, p, cmd.target); break;
+    case 'attack': attack(state, map, p, cmd.target); break;
     case 'cast': cast(state, p, cmd.skill, cmd.target); break;
     case 'interact': interact(state, p); break;
     case 'use': useItem(state, p, cmd.slot); break;
@@ -111,7 +120,7 @@ export function applyCommand(state, tick, playerId, cmd) {
   }
 }
 
-function attack(state, p, targetId) {
+function attack(state, map, p, targetId) {
   if (p.cds.attack > 0) return;
   p.cds.attack = 0.34;
   const wep = p.equip.weapon ? ITEMS[p.equip.weapon] : null;
@@ -124,7 +133,7 @@ function attack(state, p, targetId) {
     const dx = victim.x - p.x, dy = victim.y - p.y;
     const d = Math.hypot(dx, dy);
     if (d < 52 + victim.r && aimed(dx, dy, d || 1)) {
-      hurtPlayer(state, victim, dmg, p);
+      hurtPlayer(state, map, victim, dmg, p);
       hit = true;
     }
   }
@@ -146,6 +155,20 @@ function cast(state, p, skillId, targetId) {
   if (!sk || p.cds.cast > 0 || p.mp < sk.mp) return;
   p.cds.cast = sk.cd;
   p.mp -= sk.mp;
+  if (sk.kind === 'heal') {
+    const before = p.hp;
+    p.hp = Math.min(p.hpMax, p.hp + sk.amount + p.stats.int);
+    state.log.push({ tick: state.tick, text: p.name + ' HEAL +' + (p.hp - before) });
+    return;
+  }
+  if (sk.kind === 'nova') {
+    const dmg = Math.round(sk.amount + p.stats.int * 0.8);
+    for (const e of Object.values(state.enemies)) {
+      if (e.alive && Math.hypot(e.x - p.x, e.y - p.y) <= sk.radius) damageEnemy(state, e, dmg, p);
+    }
+    state.log.push({ tick: state.tick, text: p.name + ' FROST NOVA' });
+    return;
+  }
   const id = String(state.nextNetId++);
   const dmg = Math.round(6 + p.stats.int * 1.4);
   state.projectiles[id] = {
@@ -153,7 +176,6 @@ function cast(state, p, skillId, targetId) {
     vx: Math.cos(p.face) * sk.speed, vy: Math.sin(p.face) * sk.speed, life: sk.life, dmg,
   };
 }
-
 function damageEnemy(state, e, dmg, by) {
   e.hp -= dmg;
   e.hurt = 0.18;
@@ -282,7 +304,7 @@ function stepPlayer(state, map, p, dt) {
 
 // Axis-separated sweep so sliding along walls stays stable at any dt.
 function moveCircle(state, map, e, dx, dy) {
-  const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / (map ? 8 : 8)));
+  const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 8));
   const sx = dx / steps, sy = dy / steps;
   for (let i = 0; i < steps; i++) {
     if (!blocked(map, e.x + sx, e.y, e.r)) e.x += sx;
@@ -307,19 +329,28 @@ function stepEnemies(state, map, dt) {
 
     let target = null, best = 240 * 240;
     for (const p of players) {
+      if (inSafeZone(state, map, p.x, p.y)) continue;
       const d2 = (p.x - e.x) ** 2 + (p.y - e.y) ** 2;
       if (d2 < best) { best = d2; target = p; }
     }
-    if (target) e.aggro = Math.max(e.aggro, 2);
-
     let vx = 0, vy = 0;
+    if (target) e.aggro = Math.max(e.aggro, 2);
+    // Hostile things never cross into the plaza, even when their target does.
+    if (!target && inSafeZone(state, map, e.x, e.y)) {
+      const a = Math.atan2(e.hy - e.y, e.hx - e.x);
+      vx = Math.cos(a) * e.speed; vy = Math.sin(a) * e.speed;
+      e.vx = vx; e.vy = vy;
+      moveCircle(state, map, e, vx * dt, vy * dt);
+      continue;
+    }
+
     if (target) {
       const a = Math.atan2(target.y - e.y, target.x - e.x);
       const d = Math.sqrt(best);
       if (d > e.r + target.r + 6) { vx = Math.cos(a) * e.speed; vy = Math.sin(a) * e.speed; }
       if (d < e.r + target.r + 16 && e.cd <= 0) {
         e.cd = 1.0;
-        hurtPlayer(state, target, e.dmg);
+        hurtPlayer(state, map, target, e.dmg);
       }
     } else {
       e.wander += dt * 0.6;
@@ -332,8 +363,10 @@ function stepEnemies(state, map, dt) {
   }
 }
 
-function hurtPlayer(state, p, raw, by) {
+function hurtPlayer(state, map, p, raw, by) {
   if (p.iframes > 0) return;
+  if (inSafeZone(state, map, p.x, p.y)) return;
+  if (by && inSafeZone(state, map, by.x, by.y)) return;
   const armor = p.equip.armor ? ITEMS[p.equip.armor].def : 0;
   const dmg = Math.max(1, Math.round(raw - armor - p.stats.dex * 0.3));
   p.hp -= dmg;
@@ -365,7 +398,7 @@ function stepProjectiles(state, map, dt) {
     for (const q of Object.values(state.players)) {
       if (q.id === pr.owner || q.dead) continue;
       if (Math.hypot(q.x - pr.x, q.y - pr.y) < q.r + 6) {
-        hurtPlayer(state, q, pr.dmg, owner);
+        hurtPlayer(state, map, q, pr.dmg, owner);
         delete state.projectiles[pr.id];
         break;
       }

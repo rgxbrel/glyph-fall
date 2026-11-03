@@ -20,7 +20,7 @@ export class AsciiPass {
       colorMode: 0, colorIntensity: 1, phosphor: '#00ff00', invert: false,
       brightness: 0, contrast: 0, saturation: 0, hue: 0, gamma: 1,
       bloom: false, bloomIntensity: 1.5,
-      grain: true, grainIntensity: 35, grainSize: 2, grainSpeed: 50,
+      grain: true, grainIntensity: 4, grainSize: 2, grainSpeed: 50,
       chromatic: false, chromaticOffset: 2,
       scanlines: false, scanlineOpacity: 0.1, scanlineSpacing: 4,
       vignette: false, vignetteIntensity: 0.5, vignetteRadius: 0.5,
@@ -172,8 +172,10 @@ export class AsciiPass {
       for (let x = 0; x < W; x++, o++) {
         const cx = Math.min(cellsX - 1, (x / cellW) | 0);
         this.pxCell[o] = cy * cellsX + cx;
-        this.pxTx[o] = x - cx * cellW;
-        this.pxTy[o] = ty;
+        // Map fractional shader coordinates onto the integer glyph tile.
+        // Raw truncation at 9.6px cell boundaries creates a repeated texture.
+        this.pxTx[o] = Math.min(tileW - 1, Math.floor((x - cx * cellW) * tileW / cellW));
+        this.pxTy[o] = Math.min(tileH - 1, Math.floor(ty * tileH / cellH));
       }
     }
   }
@@ -347,8 +349,9 @@ export class AsciiPass {
         }
         R *= k; G *= k; B *= k;
         if (grainOn) {
-          let h = Math.imul((x / gs | 0) + 1, 374761393) ^ Math.imul((y / gs | 0) + gSeed + 7, 668265263);
-          h = (h ^ (h >>> 13)) >>> 0;
+          const nx = (x / gs | 0) + 1, ny = (y / gs | 0) + 1;
+          let h = Math.imul(nx, 374761393) ^ Math.imul(ny, 668265263) ^ Math.imul(gSeed + 1, 1442695041);
+          h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
           const n = (h / 4294967296 - 0.5) * gAmp;
           R += n; G += n; B += n;
         }

@@ -3,7 +3,7 @@
  * browser client only predicts its own avatar and interpolates everything else. */
 
 import { createServer } from 'node:http';
-import { readFile, writeFile, rename, stat } from 'node:fs/promises';
+import { readFile, writeFile, rename, rm, stat } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
@@ -18,6 +18,7 @@ const SNAP_HZ = 15;
 const map = generateMap(SEED);
 const state = createState(SEED, []);
 state.serverName = 'GLYPH FALL';
+state.npcList = map.npcs;
 spawnWorld(state, map);
 
 const clients = new Map(); // ws -> { pid, name, alive, lastMove }
@@ -52,13 +53,15 @@ function markSaved(p) {
 async function flushSaves() {
   if (!saveDirty) return;
   saveDirty = false;
-  const tmp = `${SAVE_FILE}.tmp`;
+  // Unique tmp name: two flushes in flight would otherwise race on one rename.
+  const tmp = `${SAVE_FILE}.${process.pid}.${Date.now()}.tmp`;
   try {
     await writeFile(tmp, JSON.stringify(saves));
     await rename(tmp, SAVE_FILE);
   } catch (e) {
     saveDirty = true;
     console.error('save flush failed:', e.message);
+    try { await rm(tmp, { force: true }); } catch { /* already gone */ }
   }
 }
 /* A crash must not cost more than half a minute of progress, so the living are
@@ -245,7 +248,7 @@ setInterval(() => {
   while (acc >= TICK) {
     acc -= TICK;
     try {
-      for (const [pid, cmd] of pendingCmds) applyCommand(state, state.tick, pid, cmd);
+      for (const [pid, cmd] of pendingCmds) applyCommand(state, state.tick, pid, cmd, map);
       pendingCmds = [];
       stepSim(state, map, TICK);
     } catch (e) {

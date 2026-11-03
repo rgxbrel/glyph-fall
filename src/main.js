@@ -132,6 +132,8 @@ addEventListener('keydown', (e) => {
     const slot = k === '0' ? 9 : Number(k) - 1;
     const p = state.players[localId()];
     if (ui.inventoryOpen && p && p.inv[slot] && ITEMS[p.inv[slot].id].kind === 'consumable') queue({ t: 'use', slot });
+    else if (!ui.inventoryOpen && k === '2') queue({ t: 'cast', skill: 'heal' });
+    else if (!ui.inventoryOpen && k === '3') queue({ t: 'cast', skill: 'frost' });
     else if (!ui.inventoryOpen) setCharset(slot);
     return;
   }
@@ -217,6 +219,8 @@ for (const el of document.querySelectorAll('#pad .kb')) {
     if (key) { keys.add(key); return; }
     if (act === 'attack') queue({ t: 'attack', target: nearestTarget() });
     else if (act === 'cast') queue({ t: 'cast', skill: 'spark', target: nearestTarget() });
+    else if (act === 'heal') queue({ t: 'cast', skill: 'heal' });
+    else if (act === 'frost') queue({ t: 'cast', skill: 'frost' });
     else if (act === 'interact') queue({ t: 'interact' });
     else if (act === 'bag') { ui.inventoryOpen = !ui.inventoryOpen; syncUi(); }
   };
@@ -286,11 +290,11 @@ function frame(now) {
       pending.length = 0;
       net.apply(dt, dx, dy);
     } else {
-      applyCommand(state, state.tick, localId(), { t: 'move', dx, dy });
+      applyCommand(state, state.tick, localId(), { t: 'move', dx, dy }, map);
       acc += dt;
       let guard = 0;
       while (acc >= TICK && guard++ < 5) {
-        for (const cmd of pending) applyCommand(state, state.tick, localId(), cmd);
+        for (const cmd of pending) applyCommand(state, state.tick, localId(), cmd, map);
         pending.length = 0;
         stepSim(state, map, TICK);
         acc -= TICK;
@@ -410,5 +414,5 @@ function syncUi() {
 
 buildUi();
 syncUi();
-window.__game = { get state() { return state; }, get net() { return net; }, map, pass, ui };
+window.__game = { get state() { return state; }, get net() { return net; }, get cam() { return cam; }, zoom: ZOOM, map, pass, ui };
 requestAnimationFrame(frame);

@@ -71,6 +71,10 @@ game and will read this file when back.
 
 ## Log
 
+- safe-zone: live two-client test kept both players at 60/60 hp inside the plaza, then resumed damage outside at 264px from spawn.
+- renderer: replaced correlated grain hash; desktop/mobile captures stayed at 60 fps and the diagonal noise artifact disappeared.
+- skills: heal restored 29 hp for 10 MP; frost nova dealt 22 damage to a nearby wraith for 14 MP; MMO regression had no client errors.
+
 - persist: `saves.json` on the host, keyed by name; written on leave, every 30 s
   while online, and on SIGTERM. Verified with `/tmp/cmp/persist.js`: used a herb
   (qty 2→1), reconnected under a new id (56→57) and got qty 1 back with

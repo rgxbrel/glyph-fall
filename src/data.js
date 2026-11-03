@@ -8,7 +8,9 @@ export const ITEMS = {
 };
 
 export const SKILLS = {
-  spark: { name: 'SPARK', mp: 8, cd: 0.45, speed: 420, life: 1.1, r: 6 },
+  spark: { name: 'SPARK', mp: 8, cd: 0.45, speed: 420, life: 1.1, r: 6, kind: 'projectile' },
+  heal: { name: 'HEAL', mp: 10, cd: 2.5, amount: 24, kind: 'heal' },
+  frost: { name: 'FROST NOVA', mp: 14, cd: 3.2, amount: 18, radius: 96, kind: 'nova' },
 };
 
 export const DIALOGUES = {
