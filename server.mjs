@@ -39,7 +39,7 @@ function saveOf(p) {
   return {
     level: p.level, xp: p.xp, xpNext: p.xpNext, statPoints: p.statPoints, marks: p.marks, kills: p.kills,
     hp: p.hp, hpMax: p.hpMax, mp: p.mp, mpMax: p.mpMax,
-    stats: p.stats, inv: p.inv, equip: p.equip, x: p.x, y: p.y,
+    stats: p.stats, inv: p.inv, equip: p.equip, runes: p.runes, x: p.x, y: p.y,
     savedAt: Date.now(),
   };
 }
@@ -95,6 +95,9 @@ function cleanSave(prev) {
       armor: ITEMS[prev.equip.armor]?.kind === 'armor' ? prev.equip.armor : null,
     };
   }
+  if (prev.runes && typeof prev.runes === 'object' && ITEMS[prev.runes.weapon]?.kind === 'rune') {
+    clean.runes = { weapon: prev.runes.weapon };
+  }
   return clean;
 }
 
@@ -130,6 +133,7 @@ function joinPlayer(ws, name) {
     if (prev.stats) p.stats = { str: 5, dex: 5, int: 5, ...prev.stats };
     if (Array.isArray(prev.inv)) p.inv = prev.inv.slice(0, 24);
     if (prev.equip) p.equip = { weapon: null, armor: null, ...prev.equip };
+    if (prev.runes) p.runes = prev.runes;
     const x = Number(prev.x), y = Number(prev.y);
     if (Number.isFinite(x) && Number.isFinite(y) && !map.solidAt(x, y)) { p.x = x; p.y = y; }
     else spawnPoint(state, map, p);
@@ -331,7 +335,7 @@ function clientsEnts() {
       id: p.id, name: p.name, x: p.x, y: p.y, respawn: p.respawn,
       hp: p.hp, hpMax: p.hpMax, mp: p.mp, mpMax: p.mpMax,
       level: p.level, xp: p.xp, xpNext: p.xpNext, statPoints: p.statPoints, marks: p.marks, kills: p.kills,
-      stats: p.stats, inv: p.inv, equip: p.equip, dead: p.dead, face: p.face,
+      stats: p.stats, inv: p.inv, equip: p.equip, runes: p.runes, dead: p.dead, face: p.face,
     }]);
   }
   return rows;
