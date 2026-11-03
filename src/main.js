@@ -231,7 +231,7 @@ addEventListener('keydown', (e) => {
     case 'u': { const p = state.players[localId()]; queue({ t: 'equip', slot: firstEquipSlot(p) }); break; }
     case 'i': ui.inventoryOpen = !ui.inventoryOpen; break;
     case 'p': save(); break;
-    case 'c': pass.cfg.colorMode = (pass.cfg.colorMode + 1) % 3; break;
+    case 'c': pass.cfg.colorMode = (pass.cfg.colorMode + 1) % 5; break;
     case 'b': pass.cfg.bloom = !pass.cfg.bloom; break;
     case 'g': pass.cfg.grain = !pass.cfg.grain; break;
     case 'n': pass.cfg.scanlines = !pass.cfg.scanlines; pass.buildFxTables(); break;
