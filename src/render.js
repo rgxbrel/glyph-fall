@@ -167,31 +167,49 @@ export function weatherAt(t) {
   if (k === 2) return 1 - clamp01(p / 25);
   return 0;
 }
+
+function weatherModeAt(t) {
+  const phase = Math.floor(t / 160) % 8;
+  return phase === 3 || phase === 7 ? 'fog' : phase === 4 || phase === 5 ? 'storm' : 'rain';
+}
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
 let drops = null;
 function drawWeather(g, state, W, H) {
   const k = state.weather || 0;
-  if (k <= 0.02) return;
+  const mode = weatherModeAt(state.time);
+  const phase = (state.time % 160) / 160;
+  const active = k > 0.02 || mode !== 'rain';
+  if (!active) return;
   if (!drops) {
     drops = [];
     for (let i = 0; i < 260; i++) drops.push({ x: Math.random(), y: Math.random(), s: 0.6 + Math.random() * 0.8, l: 0.5 + Math.random() });
   }
-  const t = state.time, n = Math.round(260 * k);
+  const t = state.time, rain = mode === 'storm' ? Math.max(k, 0.72) : k;
+  const n = Math.round(260 * rain);
   g.save();
   g.lineCap = 'round';
   for (let i = 0; i < n; i++) {
     const d = drops[i];
     const x = ((d.x * W + t * 130 * d.s) % (W + 60)) - 30;
     const y = ((d.y * H + t * 620 * d.s) % (H + 40)) - 20;
-    const len = 5 + d.l * 8 * k;
+    const len = 5 + d.l * 8 * rain;
     g.strokeStyle = `rgba(190,224,255,${0.1 + d.l * 0.16})`;
     g.lineWidth = 1;
     g.beginPath(); g.moveTo(x, y); g.lineTo(x - len * 0.28, y + len); g.stroke();
     if (y > H - 34) { g.strokeStyle = 'rgba(180,215,255,0.12)'; g.strokeRect(x - 3, H - 16, 6, 2); g.strokeStyle = `rgba(190,224,255,${0.1 + d.l * 0.16})`; }
   }
-  g.fillStyle = `rgba(8,16,28,${0.22 * k})`;
-  g.fillRect(0, 0, W, H);
+  if (mode === 'fog') {
+    g.fillStyle = `rgba(150,170,185,${0.12 + 0.08 * Math.sin(phase * 6.283)})`;
+    g.fillRect(0, 0, W, H);
+  } else {
+    g.fillStyle = `rgba(8,16,28,${0.22 * rain})`;
+    g.fillRect(0, 0, W, H);
+  }
+  if (mode === 'storm' && Math.sin(state.time * 2.7) > 0.985) {
+    g.fillStyle = 'rgba(190,220,255,0.2)';
+    g.fillRect(0, 0, W, H);
+  }
   g.restore();
 }
 

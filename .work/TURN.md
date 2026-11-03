@@ -71,6 +71,8 @@ game and will read this file when back.
 
 ## Log
 
+- weather: deterministic cycle now includes fog and storm phases; desktop and mobile captures remained at 60 fps.
+
 - safe-zone: live two-client test kept both players at 60/60 hp inside the plaza, then resumed damage outside at 264px from spawn.
 - renderer: replaced correlated grain hash; desktop/mobile captures stayed at 60 fps and the diagonal noise artifact disappeared.
 - skills: heal restored 29 hp for 10 MP; frost nova dealt 22 damage to a nearby wraith for 14 MP; MMO regression had no client errors.
