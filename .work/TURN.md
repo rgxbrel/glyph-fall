@@ -115,3 +115,5 @@ game and will read this file when back.
 - quest: accepting an already active quest is now idempotent and preserves kills; direct sim assertion and mmo2 passed (d291810).
 
 - onboarding: mobile first-run guidance explains movement, attack, spells, interaction; it dismisses on any control/world tap and persists locally. Desktop/mobile look remained at 60 fps (60bd79e).
+
+- network: Net.dispose now cancels stale reconnect attempts when the initial host lookup falls back offline; node checks and mmo2 passed at 60 fps with 0 errors (5128481).
