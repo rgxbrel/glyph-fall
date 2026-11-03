@@ -130,7 +130,8 @@ function attack(state, map, p, targetId) {
   if (p.cds.attack > 0) return;
   p.cds.attack = 0.34;
   const wep = p.equip.weapon ? ITEMS[p.equip.weapon] : null;
-  const dmg = Math.round(4 + p.stats.str * 1.1 + (wep ? wep.dmg : 0));
+  const runeBonus = p.runes?.weapon === 'fireRune' ? 4 : 0;
+  const dmg = Math.round(4 + p.stats.str * 1.1 + (wep ? wep.dmg : 0) + runeBonus);
   const ax = Math.cos(p.face), ay = Math.sin(p.face);
   let hit = false;
   const aimed = (dx, dy, d) => d < 18 || (dx * ax + dy * ay) / d > 0.45;

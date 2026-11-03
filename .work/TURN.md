@@ -132,3 +132,4 @@ game and will read this file when back.
 - prototype-combat: isolated Godot ASCII scene now supports arrow/WASD movement and Space projectile attacks with animated fire bolts; Godot editor validation found no parse errors, and the main host remained healthy (efd2c38).
 
 - qoder-handoff: applied the review finding that `†` is outside supported glyphs; safe-zone ring now uses `+`, present in every relevant charset. look stayed at 60 fps and safe_live still blocked plaza damage/resumed it at 264px (be0e863).
+- crafting: FIRE RUNE now adds its authoritative +4 attack damage; direct sim assertion reported base=13/fire=17, crash fuzz stayed alive, and stable mmo2 held 60 fps with 0 client errors.
