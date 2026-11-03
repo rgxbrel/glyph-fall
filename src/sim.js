@@ -119,6 +119,7 @@ export function applyCommand(state, tick, playerId, cmd, map) {
     case 'dialogue': state.dialogue = cmd.payload; break;
     case 'quest': acceptQuest(state); break;
     case 'questin': turnInQuest(state, p); break;
+    case 'trade': trade(state, p, cmd.item); break;
     case 'close': state.dialogue = null; break;
     default: break;
   }
@@ -242,6 +243,16 @@ function interact(state, p) {
     }
     return;
   }
+}
+
+function trade(state, p, itemId) {
+  const trader = (state.npcList || []).find((npc) => npc.role === 'trade');
+  const item = ITEMS[itemId];
+  if (!trader || !item || !['weapon', 'armor', 'consumable'].includes(item.kind)) return;
+  if (Math.hypot(trader.x - p.x, trader.y - p.y) >= 60 || p.marks < item.value) return;
+  p.marks -= item.value;
+  addItem(state, p, itemId, 1);
+  state.log.push({ tick: state.tick, text: `BOUGHT ${item.name}` });
 }
 
 function addItem(state, p, id, qty) {

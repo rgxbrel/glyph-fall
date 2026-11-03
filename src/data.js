@@ -20,7 +20,7 @@ export const DIALOGUES = {
     { q: 'Goodbye.', a: 'Go. Mind the water; it eats sprites.' },
   ],
   trader: [
-    { q: 'Sell me a blade.', a: 'GLYPH BLADE, 60 marks. Bring me herbs and I will make something.' },
+    { q: 'Buy gear.', a: 'Press B near me: DAGGER 20, COAT 25, GLYPH BLADE 60, WARD COAT 70 marks.' },
     { q: 'Potions?', a: 'HERB mends 18. MANA ROOT fills the blue. Pick them yourself, they are free.' },
   ],
 };

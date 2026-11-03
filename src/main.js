@@ -184,6 +184,13 @@ addEventListener('keydown', (e) => {
     return;
   }
 
+  if (k === 'b' && state.dialogue?.who === 'trader') {
+    const p = state.players[localId()];
+    const item = p?.marks >= 70 ? 'ward' : p?.marks >= 60 ? 'blade' : p?.marks >= 25 ? 'coat' : p?.marks >= 20 ? 'dagger' : null;
+    if (item) queue({ t: 'trade', item });
+    syncUi();
+    return;
+  }
   switch (k) {
     case 'j': case 'z': queue({ t: 'attack', target: nearestTarget() }); break;
     case 'l': queue({ t: 'cast', skill: 'spark', target: nearestTarget() }); break;
