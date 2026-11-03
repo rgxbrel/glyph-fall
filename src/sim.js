@@ -423,7 +423,7 @@ function stepProjectiles(state, map, dt) {
 /* ----------------------------------------------------------------- quests -- */
 
 export function acceptQuest(state) {
-  if (state.quest.turnedIn) return;
+  if (state.quest.turnedIn || state.quest.active) return;
   state.quest.active = true;
   state.quest.kills = 0;
   state.log.push({ tick: state.tick, text: 'QUEST: THIN FIVE' });
