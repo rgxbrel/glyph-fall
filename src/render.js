@@ -85,8 +85,11 @@ export function drawScene(g, state, map, cam, W, H, ui, zoom = 1) {
       g.fillStyle = '#ffd23f'; g.fillRect(pk.x - 12, pk.y - 9, 24, 18);
       g.fillStyle = '#5a3c00'; g.fillRect(pk.x - 12, pk.y - 2, 24, 4);
     } else {
-      g.fillStyle = '#8dff5a'; g.fillRect(pk.x - 4, pk.y - 8 + bob, 8, 14);
-      g.fillStyle = '#e8ffd0'; g.fillRect(pk.x - 7, pk.y - 2 + bob, 14, 4);
+      const mana = pk.kind === 'mana';
+      g.fillStyle = mana ? '#5aa8ff' : '#8dff5a';
+      g.fillRect(pk.x - 4, pk.y - 8 + bob, 8, 14);
+      g.fillStyle = mana ? '#d5e8ff' : '#e8ffd0';
+      g.fillRect(pk.x - 7, pk.y - 2 + bob, 14, 4);
     }
   }
 
