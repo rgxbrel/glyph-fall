@@ -56,6 +56,14 @@ const out = document.getElementById('out');
 const pass = new AsciiPass(out);
 pass.cfg.set = 'detailed';
 const touch = matchMedia('(pointer: coarse)').matches;
+const onboard = document.getElementById('onboard');
+if (touch && !localStorage.getItem('glyph-onboard-seen')) onboard.style.display = 'block';
+function dismissOnboard() {
+  if (!onboard || onboard.style.display === 'none') return;
+  onboard.style.display = 'none';
+  localStorage.setItem('glyph-onboard-seen', '1');
+}
+document.getElementById('onboardClose')?.addEventListener('click', dismissOnboard);
 pass.setScale(1);
 const ZOOM = touch ? 2.8 : 3.4;
 pass.buildAtlas(); pass.buildTiles(); pass.buildCellMap();
@@ -252,6 +260,7 @@ for (const el of document.querySelectorAll('#pad .kb')) {
   const key = el.dataset.k, act = el.dataset.t;
   const down = (e) => {
     e.preventDefault();
+    dismissOnboard();
     el.classList.add('on');
     if (key) { keys.add(key); return; }
     if (act === 'attack') {
@@ -277,6 +286,7 @@ for (const el of document.querySelectorAll('#pad .kb')) {
 
 /* tap the world to aim */
 out.addEventListener('pointerdown', (e) => {
+  dismissOnboard();
   const p = state.players[localId()];
   if (!p) return;
   const box = out.getBoundingClientRect();

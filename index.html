@@ -37,6 +37,9 @@
     font: inherit; padding: 5px;
   }
   #panel kbd { background: #0d1418; border: 1px solid #1d3a2c; padding: 1px 4px; border-radius: 2px; color: var(--fg); }
+  #onboard { display: none; position: fixed; left: 50%; top: 16%; transform: translateX(-50%); z-index: 8; width: min(86vw, 360px); padding: 14px; background: #080b10ee; border: 1px solid #245040; color: #cfe; text-align: center; box-shadow: 0 0 30px #000; pointer-events: auto; }
+  #onboard strong { display: block; color: var(--fg); letter-spacing: .1em; margin-bottom: 8px; }
+  #onboard button { margin-top: 10px; background: #0d1418; color: #9fddc2; border: 1px solid #1d3a2c; padding: 6px 12px; font: inherit; }
   #hud { position: fixed; left: 10px; top: 4px; color: #2c6b52; font-size: 10px; pointer-events: none; }
 
   #gear {
@@ -155,6 +158,7 @@
       <kbd>m</kbd> match quality · <kbd>p</kbd> salvar · <kbd>h</kbd> painel
     </div>
   </aside>
+  <div id="onboard"><strong>GLYPH FALL</strong><span>Arraste o direcional para andar.<br />ATK segura o ataque · SPK lança magia.<br />USE interage com NPCs e coleta itens.</span><br /><button id="onboardClose" type="button">ENTENDI</button></div>
   <div id="hud"><span id="fps"></span></div>
 
   <script type="module" src="./src/main.js"></script>
