@@ -9,6 +9,7 @@ This isolated prototype tests the ASCII Realms direction without changing the ma
 - Enemies pursue the player, collide, deal contact damage with brief invulnerability, take three hits, disappear briefly, then respawn
 - Camera follows the player while keeping the bounded arena in view
 - A three-phase boss has 30 HP, an expanding telegraph ring and a timed area attack
+- Boss attacks emit aimed radial bullet rings whose count increases by phase; impacts trigger hit flashes, screen shake and expanding ASCII bursts
 
 Run with Godot 3.x and `project.godot`.
 

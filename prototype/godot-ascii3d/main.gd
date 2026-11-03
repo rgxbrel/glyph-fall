@@ -27,6 +27,9 @@ var boss_hp := 30
 var boss_phase := 1
 var boss_attack := 2.0
 var boss_telegraph := 0.0
+var camera_shake := 0.0
+var kills := 0
+var wave := 1
 
 func _ready() -> void:
 	var env := WorldEnvironment.new()
@@ -168,6 +171,17 @@ func _respawn_enemy(index: int) -> void:
 	enemy.visible = true
 	enemy_hp[index] = 3
 
+func _spawn_boss_ring() -> void:
+	if not boss or not boss.visible:
+		return
+	var count := 8 + boss_phase * 4
+	for i in range(count):
+		var angle := (float(i) * 6.2831853 / float(count)) + atan2(player.translation.z - boss.translation.z, player.translation.x - boss.translation.x)
+		var direction := Vector3(cos(angle), 0, sin(angle)).normalized()
+		var bolt := _make_actor(Color("ff527d"), boss.translation + direction * 1.2 + Vector3(0, 0.25, 0), 0.12)
+		projectiles.append({"node": bolt, "velocity": direction * (3.4 + boss_phase * 0.45), "life": 3.0, "hostile": true})
+	_spawn_effect(boss.translation + Vector3(0, 0.25, 0), Color("ff527d"), 0.28, 0.35)
+
 func _dash() -> void:
 	if dash_cooldown > 0.0 or not player:
 		return
@@ -177,6 +191,8 @@ func _dash() -> void:
 	player.translation += direction * 2.4
 	dash_cooldown = 1.4
 	dash_time = 0.18
+	camera_shake = max(camera_shake, 0.12)
+	_spawn_effect(player.translation, Color("7fe9c0"), 0.18, 0.28)
 
 func _spawn_pickup(pos: Vector3, kind: String) -> void:
 	var color := Color("70b7ff") if kind == "mana" else Color("ffd166")
@@ -212,6 +228,7 @@ func _step_pickups() -> void:
 		var item: Dictionary = pickups[i]
 		var node: Spatial = item["node"]
 		node.translation.y = 0.5 + sin(t * 3.0 + i) * 0.12
+		node.scale = Vector3.ONE * (1.0 + sin(t * 5.0 + i) * 0.12)
 		if node.translation.distance_to(player.translation) < 1.1:
 			if item["kind"] == "heart":
 				player_hp = min(5, player_hp + 2)
@@ -228,10 +245,28 @@ func _step_projectiles(delta: float) -> void:
 		shot["life"] -= delta
 		node.translation += shot["velocity"] * delta
 		var remove: bool = shot["life"] <= 0.0
+		if shot.get("hostile", false):
+			if node.translation.distance_to(player.translation) < 0.75 and player_iframes <= 0.0:
+				player_hp -= 1
+				player_iframes = 0.8
+				camera_shake = max(camera_shake, 0.22)
+				_spawn_effect(player.translation, Color("ff527d"), 0.2, 0.3)
+				if player_hp <= 0:
+					player_hp = 5
+					player.translation = Vector3(0, 1, 0)
+				remove = true
+			if remove:
+				node.queue_free()
+				projectiles.remove(i)
+			else:
+				projectiles[i] = shot
+			continue
 		for enemy_index in range(enemies.size()):
 			var enemy: Spatial = enemies[enemy_index]
 			if enemy.visible and node.translation.distance_to(enemy.translation) < 0.7:
 				enemy_hp[enemy_index] -= 1
+				kills += 1 if enemy_hp[enemy_index] <= 0 else 0
+				camera_shake = max(camera_shake, 0.08)
 				enemy_flash[enemy_index] = 0.14
 				_spawn_effect(enemy.translation + Vector3(0, 0.5, 0), Color("fff0a3"), 0.16, 0.22)
 				remove = true
@@ -246,6 +281,7 @@ func _step_projectiles(delta: float) -> void:
 			_spawn_effect(boss.translation + Vector3(0, 0.7, 0), Color("f6b6ff"), 0.22, 0.28)
 			score += 5
 			remove = true
+			camera_shake = max(camera_shake, 0.1)
 			if boss_hp <= 0:
 				_spawn_effect(boss.translation, Color("c66bff"), 0.45, 0.75)
 				boss.visible = false
@@ -272,7 +308,10 @@ func _step_boss(delta: float) -> void:
 		boss_telegraph -= delta
 		boss_ring.visible = true
 		boss_ring.translation = Vector3(boss.translation.x, 0.08, boss.translation.z)
-		boss_ring.scale = Vector3.ONE * (2.1 + (1.0 - boss_telegraph) * 1.4)
+		boss_ring.scale = Vector3.ONE * (2.1 + (1.0 - boss_telegraph) * 1.4) * (1.0 + sin(t * 18.0) * 0.08)
+		if boss_telegraph <= 0.0:
+			_spawn_boss_ring()
+			camera_shake = max(camera_shake, 0.16)
 		if boss_telegraph <= 0.0 and player_iframes <= 0.0 and boss.translation.distance_to(player.translation) < 3.5:
 			player_hp -= 2
 			player_iframes = 0.9
@@ -297,6 +336,7 @@ func _process(delta: float) -> void:
 	dash_time = max(0.0, dash_time - delta)
 	player_attack = max(0.0, player_attack - delta)
 	player_iframes = max(0.0, player_iframes - delta)
+	camera_shake = max(0.0, camera_shake - delta)
 	if player:
 		var movement := _move_vector()
 		player.translation += movement * player_speed * delta
@@ -334,9 +374,10 @@ func _process(delta: float) -> void:
 	_step_pickups()
 	if hud:
 		var boss_line := "DEFEATED // press R to reset" if boss_defeated else "BOSS %02d/30 // PHASE %d" % [boss_hp, boss_phase]
-		hud.text = "GLYPH FALL  //  HP %d/5  //  SCORE %04d  //  DASH %s\n%s\nWASD move  SHIFT dash  SPACE fire  R restart boss" % [player_hp, score, ("READY" if dash_cooldown <= 0.0 else "%.1f" % dash_cooldown), boss_line]
+		hud.text = "GLYPH FALL  //  HP %d/5  //  SCORE %04d  //  DASH %s\n%s\nKILLS %02d  WAVE %02d\nWASD move  SHIFT dash  SPACE fire  R restart boss" % [player_hp, score, ("READY" if dash_cooldown <= 0.0 else "%.1f" % dash_cooldown), boss_line, kills, wave]
 	if camera and player:
-		camera.translation = Vector3(player.translation.x, 7.0, player.translation.z + 12.0)
+		var shake := Vector3(sin(t * 71.0), 0, cos(t * 83.0)) * camera_shake
+		camera.translation = Vector3(player.translation.x, 7.0, player.translation.z + 12.0) + shake
 		camera.look_at_from_position(camera.translation, player.translation, Vector3.UP)
 	_step_effects(delta)
 	_step_projectiles(delta)
