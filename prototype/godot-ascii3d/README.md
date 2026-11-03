@@ -8,5 +8,6 @@ This isolated prototype tests the ASCII Realms direction without changing the ma
 - Space fires homing animated projectiles at the nearest enemy
 - Enemies pursue the player, collide, deal contact damage with brief invulnerability, take three hits, disappear briefly, then respawn
 - Camera follows the player while keeping the bounded arena in view
+- A three-phase boss has 30 HP, an expanding telegraph ring and a timed area attack
 
 Run with Godot 3.x and `project.godot`.

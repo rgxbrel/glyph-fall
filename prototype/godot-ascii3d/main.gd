@@ -11,6 +11,12 @@ var enemy_respawn := []
 var projectiles := []
 var fire_cooldown := 0.0
 var player_speed := 5.5
+var boss: Spatial
+var boss_ring: Spatial
+var boss_hp := 30
+var boss_phase := 1
+var boss_attack := 2.0
+var boss_telegraph := 0.0
 
 func _ready() -> void:
 	var env := WorldEnvironment.new()
@@ -33,6 +39,10 @@ func _ready() -> void:
 		enemies.append(_make_actor(Color("ff6b72"), Vector3(cos(a) * 4.0, 0.8, sin(a) * 4.0), 0.55))
 		enemy_hp.append(3)
 		enemy_respawn.append(0.0)
+	boss = _make_actor(Color("c66bff"), Vector3(0, 0.95, -6), 1.15)
+	boss.scale = Vector3(1.4, 1.4, 1.4)
+	boss_ring = _make_actor(Color("ff527d"), Vector3(0, 0.08, -6), 1.0)
+	boss_ring.scale = Vector3(3.2, 0.08, 3.2)
 
 func _make_light() -> void:
 	var light := OmniLight.new()
@@ -109,6 +119,10 @@ func _nearest_enemy() -> Spatial:
 			if d < best_dist:
 				best_dist = d
 				best = enemy
+	if boss and boss.visible:
+		var boss_dist := player.translation.distance_squared_to(boss.translation)
+		if boss_dist < best_dist:
+			best = boss
 	return best
 
 func _respawn_enemy(index: int) -> void:
@@ -134,11 +148,46 @@ func _step_projectiles(delta: float) -> void:
 					enemy.visible = false
 					enemy_respawn[enemy_index] = 0.45
 				break
+		if not remove and boss and boss.visible and node.translation.distance_to(boss.translation) < 1.35:
+			boss_hp -= 1
+			remove = true
+			if boss_hp <= 0:
+				boss.visible = false
+				boss_ring.visible = false
 		if remove:
 			node.queue_free()
 			projectiles.remove(i)
 		else:
 			projectiles[i] = shot
+
+
+func _step_boss(delta: float) -> void:
+	if not boss or not boss.visible:
+		return
+	boss_attack -= delta
+	if boss_attack <= 0.0 and boss_telegraph <= 0.0:
+		boss_telegraph = 1.0
+		boss_attack = max(1.8, 3.2 - boss_phase * 0.45)
+	if boss_telegraph > 0.0:
+		boss_telegraph -= delta
+		boss_ring.visible = true
+		boss_ring.translation = Vector3(boss.translation.x, 0.08, boss.translation.z)
+		boss_ring.scale = Vector3.ONE * (2.1 + (1.0 - boss_telegraph) * 1.4)
+		if boss_telegraph <= 0.0 and player_iframes <= 0.0 and boss.translation.distance_to(player.translation) < 3.5:
+			player_hp -= 2
+			player_iframes = 0.9
+			if player_hp <= 0:
+				player_hp = 5
+				player.translation = Vector3(0, 1, 0)
+	else:
+		boss_ring.visible = false
+	var to_player := player.translation - boss.translation
+	to_player.y = 0.0
+	if to_player.length_squared() > 5.0:
+		boss.translation += to_player.normalized() * (0.45 + boss_phase * 0.18) * delta
+	boss.translation.y = 0.95 + sin(t * 2.0) * 0.12
+	boss_phase = 1 if boss_hp > 20 else (2 if boss_hp > 10 else 3)
+	boss.scale = Vector3.ONE * (1.2 + boss_phase * 0.12)
 
 func _process(delta: float) -> void:
 	t += delta
@@ -174,6 +223,7 @@ func _process(delta: float) -> void:
 				if player_hp <= 0:
 					player_hp = 5
 					player.translation = Vector3(0, 1, 0)
+	_step_boss(delta)
 	if camera and player:
 		camera.translation = Vector3(player.translation.x, 7.0, player.translation.z + 12.0)
 		camera.look_at_from_position(camera.translation, player.translation, Vector3.UP)

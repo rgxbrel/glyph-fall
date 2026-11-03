@@ -154,3 +154,4 @@ game and will read this file when back.
   those leaked browsers, not missing reaping. With all chromium killed, the host
   dropped the last one within one 20 s heartbeat cycle.
 - prototype-survival: Godot prototype now resolves enemy contact with pushback, 5-heart damage, invulnerability frames and reset, plus a player-follow camera; runtime/editor validation under Xvfb/Godot 3.6 had no script errors.
+- prototype-boss: isolated Godot arena now includes a 30-HP three-phase boss, nearest-target projectile hits, expanding telegraph ring and timed AoE damage; Godot 3.6 runtime/editor validation had no script errors.
