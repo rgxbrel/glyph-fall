@@ -9,6 +9,10 @@ var enemies := []
 var enemy_hp := []
 var enemy_respawn := []
 var projectiles := []
+var effects := []
+var player_attack := 0.0
+var boss_flash := 0.0
+var enemy_flash := []
 var fire_cooldown := 0.0
 var player_speed := 5.5
 var dash_cooldown := 0.0
@@ -46,6 +50,7 @@ func _ready() -> void:
 		enemies.append(_make_actor(Color("ff6b72"), Vector3(cos(a) * 4.0, 0.8, sin(a) * 4.0), 0.55))
 		enemy_hp.append(3)
 		enemy_respawn.append(0.0)
+		enemy_flash.append(0.0)
 	boss = _make_actor(Color("c66bff"), Vector3(0, 0.95, -6), 1.15)
 	boss.scale = Vector3(1.4, 1.4, 1.4)
 	boss_ring = _make_actor(Color("ff527d"), Vector3(0, 0.08, -6), 1.0)
@@ -124,10 +129,16 @@ func _move_vector() -> Vector3:
 		v.z += 1.0
 	return v.normalized() if v.length_squared() > 0.0 else v
 
+func _spawn_effect(pos: Vector3, color: Color, size: float, life: float) -> void:
+	var fx := _make_actor(color, pos, size)
+	effects.append({"node": fx, "life": life, "max_life": life, "start": size})
+
 func _fire() -> void:
 	if fire_cooldown > 0.0 or not player:
 		return
 	fire_cooldown = 0.28
+	player_attack = 0.16
+	_spawn_effect(player.translation + Vector3(0, 0.1, 0), Color("fff0a3"), 0.12, 0.16)
 	var target := _nearest_enemy()
 	var direction := Vector3(0, 0, -1)
 	if target:
@@ -182,6 +193,20 @@ func _reset_boss() -> void:
 	boss_ring.visible = false
 	boss.translation = Vector3(0, 0.95, -6)
 
+func _step_effects(delta: float) -> void:
+	for i in range(effects.size() - 1, -1, -1):
+		var fx: Dictionary = effects[i]
+		var node: Spatial = fx["node"]
+		fx["life"] -= delta
+		var ratio: float = max(0.0, fx["life"] / fx["max_life"])
+		node.scale = Vector3.ONE * (1.0 + (1.0 - ratio) * 2.8)
+		node.translation.y += delta * 0.8
+		if fx["life"] <= 0.0:
+			node.queue_free()
+			effects.remove(i)
+		else:
+			effects[i] = fx
+
 func _step_pickups() -> void:
 	for i in range(pickups.size() - 1, -1, -1):
 		var item: Dictionary = pickups[i]
@@ -207,16 +232,22 @@ func _step_projectiles(delta: float) -> void:
 			var enemy: Spatial = enemies[enemy_index]
 			if enemy.visible and node.translation.distance_to(enemy.translation) < 0.7:
 				enemy_hp[enemy_index] -= 1
+				enemy_flash[enemy_index] = 0.14
+				_spawn_effect(enemy.translation + Vector3(0, 0.5, 0), Color("fff0a3"), 0.16, 0.22)
 				remove = true
 				if enemy_hp[enemy_index] <= 0:
+					_spawn_effect(enemy.translation, Color("ff6b72"), 0.28, 0.42)
 					enemy.visible = false
 					enemy_respawn[enemy_index] = 0.45
 				break
 		if not remove and boss and boss.visible and node.translation.distance_to(boss.translation) < 1.35:
 			boss_hp -= 1
+			boss_flash = 0.18
+			_spawn_effect(boss.translation + Vector3(0, 0.7, 0), Color("f6b6ff"), 0.22, 0.28)
 			score += 5
 			remove = true
 			if boss_hp <= 0:
+				_spawn_effect(boss.translation, Color("c66bff"), 0.45, 0.75)
 				boss.visible = false
 				boss_ring.visible = false
 				boss_defeated = true
@@ -256,13 +287,15 @@ func _step_boss(delta: float) -> void:
 		boss.translation += to_player.normalized() * (0.45 + boss_phase * 0.18) * delta
 	boss.translation.y = 0.95 + sin(t * 2.0) * 0.12
 	boss_phase = 1 if boss_hp > 20 else (2 if boss_hp > 10 else 3)
-	boss.scale = Vector3.ONE * (1.2 + boss_phase * 0.12)
+	boss.scale = Vector3.ONE * (1.2 + boss_phase * 0.12) * (1.0 + boss_flash * 0.9)
+	boss_flash = max(0.0, boss_flash - delta)
 
 func _process(delta: float) -> void:
 	t += delta
 	fire_cooldown = max(0.0, fire_cooldown - delta)
 	dash_cooldown = max(0.0, dash_cooldown - delta)
 	dash_time = max(0.0, dash_time - delta)
+	player_attack = max(0.0, player_attack - delta)
 	player_iframes = max(0.0, player_iframes - delta)
 	if player:
 		var movement := _move_vector()
@@ -270,6 +303,7 @@ func _process(delta: float) -> void:
 		player.translation.x = clamp(player.translation.x, -10.0, 10.0)
 		player.translation.z = clamp(player.translation.z, -10.0, 10.0)
 		player.translation.y = 1.0 + sin(t * 3.0) * 0.08
+		player.scale = Vector3.ONE * (1.0 + player_attack * 1.8)
 	for i in range(enemies.size()):
 		var enemy: Spatial = enemies[i]
 		if not enemy.visible:
@@ -282,6 +316,8 @@ func _process(delta: float) -> void:
 		if direction.length_squared() > 0.4:
 			enemy.translation += direction.normalized() * (1.2 + i * 0.05) * delta
 		enemy.translation.y = 0.8 + sin(t * 2.0 + i) * 0.12
+		enemy_flash[i] = max(0.0, enemy_flash[i] - delta)
+		enemy.scale = Vector3.ONE * (1.0 + enemy_flash[i] * 2.2)
 		var contact := enemy.translation.distance_to(player.translation)
 		if contact < 1.15:
 			var push := (enemy.translation - player.translation)
@@ -302,4 +338,5 @@ func _process(delta: float) -> void:
 	if camera and player:
 		camera.translation = Vector3(player.translation.x, 7.0, player.translation.z + 12.0)
 		camera.look_at_from_position(camera.translation, player.translation, Vector3.UP)
+	_step_effects(delta)
 	_step_projectiles(delta)
