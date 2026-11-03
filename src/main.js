@@ -274,6 +274,9 @@ for (const el of document.querySelectorAll('#pad .kb')) {
   const key = el.dataset.k, act = el.dataset.t;
   const down = (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    if (chatIn === document.activeElement) chatIn.blur();
+    chatForm.style.display = 'none';
     dismissOnboard();
     el.classList.add('on');
     if (key) { keys.add(key); return; }
@@ -287,12 +290,14 @@ for (const el of document.querySelectorAll('#pad .kb')) {
     else if (act === 'interact') queue({ t: 'interact' });
     else if (act === 'bag') { ui.inventoryOpen = !ui.inventoryOpen; syncUi(); }
   };
-  const up = () => {
+  const up = (e) => {
+    e?.stopPropagation();
     el.classList.remove('on');
     if (key) keys.delete(key);
     if (act === 'attack' && attackRepeat) { clearInterval(attackRepeat); attackRepeat = null; }
   };
   el.addEventListener('pointerdown', down);
+  el.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
   el.addEventListener('pointerup', up);
   el.addEventListener('pointercancel', up);
   el.addEventListener('pointerleave', up);
