@@ -37,7 +37,7 @@ const saves = (() => {
 
 function saveOf(p) {
   return {
-    level: p.level, xp: p.xp, xpNext: p.xpNext, marks: p.marks, kills: p.kills,
+    level: p.level, xp: p.xp, xpNext: p.xpNext, statPoints: p.statPoints, marks: p.marks, kills: p.kills,
     hp: p.hp, hpMax: p.hpMax, mp: p.mp, mpMax: p.mpMax,
     stats: p.stats, inv: p.inv, equip: p.equip, x: p.x, y: p.y,
     savedAt: Date.now(),
@@ -112,7 +112,7 @@ function joinPlayer(ws, name) {
     id, name: normalized,
     x: map.spawn.x, y: map.spawn.y, vx: 0, vy: 0, r: 12, face: 0, anim: 0,
     hp: 60, hpMax: 60, mp: 30, mpMax: 30,
-    level: 1, xp: 0, xpNext: 20, marks: 0,
+    level: 1, xp: 0, xpNext: 20, statPoints: 0, marks: 0,
     stats: { str: 5, dex: 5, int: 5 },
     inv: [{ id: 'herb', qty: 2 }], equip: { weapon: null, armor: null },
     cds: { attack: 0, cast: 0 }, iframes: 0, dead: false, respawn: 0, kills: 0,
@@ -122,7 +122,7 @@ function joinPlayer(ws, name) {
   const p = state.players[id];
   const prev = cleanSave(saves[p.name]);
   if (prev && Number.isFinite(prev.level)) {
-    for (const k of ['level', 'xp', 'xpNext', 'marks', 'kills', 'hpMax', 'mpMax']) {
+    for (const k of ['level', 'xp', 'xpNext', 'statPoints', 'marks', 'kills', 'hpMax', 'mpMax']) {
       if (Number.isFinite(prev[k])) p[k] = prev[k];
     }
     p.hp = Number.isFinite(prev.hp) ? Math.min(prev.hp, p.hpMax) : p.hpMax;
@@ -330,7 +330,7 @@ function clientsEnts() {
     rows.push([c.pid, {
       id: p.id, name: p.name, x: p.x, y: p.y, respawn: p.respawn,
       hp: p.hp, hpMax: p.hpMax, mp: p.mp, mpMax: p.mpMax,
-      level: p.level, xp: p.xp, xpNext: p.xpNext, marks: p.marks, kills: p.kills,
+      level: p.level, xp: p.xp, xpNext: p.xpNext, statPoints: p.statPoints, marks: p.marks, kills: p.kills,
       stats: p.stats, inv: p.inv, equip: p.equip, dead: p.dead, face: p.face,
     }]);
   }

@@ -53,7 +53,7 @@ function makePlayer(id, name) {
     id, name, x: 0, y: 0, vx: 0, vy: 0, r: 12, face: 0, anim: 0,
     hp: 60, hpMax: 60, mp: 30, mpMax: 30,
     level: 1, xp: 0, xpNext: 20, marks: 0,
-    stats: { str: 5, dex: 5, int: 5 },
+    stats: { str: 5, dex: 5, int: 5 }, statPoints: 0,
     inv: [{ id: 'herb', qty: 2 }], equip: { weapon: null, armor: null },
     cds: { attack: 0, cast: 0 }, iframes: 0, dead: false, respawn: 0, kills: 0,
   };
@@ -109,6 +109,7 @@ export function applyCommand(state, tick, playerId, cmd, map) {
     case 'move': p.inx = unit(cmd.dx); p.iny = unit(cmd.dy); break;
     case 'attack': attack(state, map, p, cmd.target); break;
     case 'cast': cast(state, p, cmd.skill, cmd.target); break;
+    case 'stat': spendStat(p, cmd.stat); break;
     case 'interact': interact(state, p); break;
     case 'use': useItem(state, p, cmd.slot); break;
     case 'equip': equipItem(state, p, cmd.slot); break;
@@ -192,15 +193,22 @@ function damageEnemy(state, e, dmg, by) {
   }
 }
 
+function spendStat(p, stat) {
+  if (!p || p.statPoints <= 0 || !['str', 'dex', 'int'].includes(stat)) return;
+  p.stats[stat] = Math.min(999, p.stats[stat] + 1);
+  p.statPoints--;
+}
+
 function gainXp(state, p, amount) {
   p.xp += amount;
   while (p.xp >= p.xpNext) {
     p.xp -= p.xpNext;
     p.level++;
     p.xpNext = Math.round(20 * Math.pow(p.level, 1.5));
-    p.stats.str += 1 + (p.level % 2 === 0 ? 1 : 0);
+    p.statPoints += 3;
+    p.stats.str += 1;
     p.stats.dex += 1;
-    p.stats.int += p.level % 2 === 0 ? 1 : 0;
+    p.stats.int += 1;
     p.hpMax += 8; p.mpMax += 4;
     p.hp = p.hpMax; p.mp = p.mpMax;
     state.log.push({ tick: state.tick, text: `LEVEL ${p.level}` });

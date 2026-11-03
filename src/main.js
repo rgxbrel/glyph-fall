@@ -390,7 +390,29 @@ function buildUi() {
   bind('gm', 'gamma');
 }
 
+function syncStats() {
+  const el = document.getElementById('stats');
+  const p = state.players[localId()];
+  if (!el || !p) return;
+  el.textContent = '';
+  for (const stat of ['str', 'dex', 'int']) {
+    const row = document.createElement('span');
+    row.textContent = `${stat.toUpperCase()} ${p.stats?.[stat] || 0} `;
+    if ((p.statPoints || 0) > 0) {
+      const b = document.createElement('button');
+      b.textContent = '+';
+      b.onclick = () => { queue({ t: 'stat', stat }); syncStats(); };
+      row.appendChild(b);
+    }
+    el.appendChild(row);
+  }
+  const note = document.createElement('div');
+  note.textContent = `POINTS ${p.statPoints || 0}`;
+  el.appendChild(note);
+}
+
 function syncUi() {
+  syncStats();
   const c = pass.cfg;
   [...document.getElementById('sets').children].forEach((b, i) => b.classList.toggle('on', Object.keys(CHARSETS)[i] === c.set));
   [...document.getElementById('modes').children].forEach((b, i) => b.classList.toggle('on', i === c.colorMode));

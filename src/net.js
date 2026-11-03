@@ -70,7 +70,7 @@ export class Net {
     const p = {
       id: m.id, name: m.id ? 'YOU' : 'YOU', x: this.map.spawn.x, y: this.map.spawn.y,
       vx: 0, vy: 0, r: 12, face: 0, anim: 0, inx: 0, iny: 0,
-      hp: 60, hpMax: 60, mp: 30, mpMax: 30, level: 1, xp: 0, xpNext: 20, marks: 0,
+      hp: 60, hpMax: 60, mp: 30, mpMax: 30, level: 1, xp: 0, xpNext: 20, statPoints: 0, marks: 0,
       stats: { str: 5, dex: 5, int: 5 }, inv: [{ id: 'herb', qty: 2 }],
       equip: { weapon: null, armor: null }, cds: { attack: 0, cast: 0 },
       iframes: 0, dead: false, respawn: 0, kills: 0, local: true,
@@ -111,7 +111,7 @@ export class Net {
     /* --- my own avatar: trust server stats, keep predicted position --- */
     const mine = st.players[st.local];
     if (mine && m.me) {
-      for (const k of ['hp', 'hpMax', 'mp', 'mpMax', 'level', 'xp', 'xpNext', 'marks', 'kills', 'dead', 'face']) mine[k] = m.me[k];
+      for (const k of ['hp', 'hpMax', 'mp', 'mpMax', 'level', 'xp', 'xpNext', 'statPoints', 'marks', 'kills', 'dead', 'face']) mine[k] = m.me[k];
       mine.stats = m.me.stats; mine.inv = m.me.inv; mine.equip = m.me.equip;
       const err = Math.hypot(mine.x - m.me.x, mine.y - m.me.y);
       if (err > 34 || mine.dead) { mine.x = m.me.x; mine.y = m.me.y; }
