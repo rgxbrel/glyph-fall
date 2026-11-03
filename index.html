@@ -2,18 +2,23 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GLYPH FALL — ASCII action RPG</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#05070c" />
+<link rel="icon" href="data:," />
+<title>GLYPH FALL — ASCII MMORPG</title>
 <style>
   :root { --fg: #00ff88; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: #05070c; color: #cfe; overflow: hidden; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; background: #05070c; color: #cfe; overflow: hidden;
+    overscroll-behavior: none; touch-action: none;
+  }
   body { font: 11px/1.5 ui-monospace, "DejaVu Sans Mono", monospace; display: flex; }
   #stage { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; }
-  #out { image-rendering: pixelated; background: #000; box-shadow: 0 0 60px rgba(0,255,136,.08); }
+  #out { image-rendering: pixelated; background: #000; box-shadow: 0 0 60px rgba(0,255,136,.08); touch-action: none; }
   #panel {
     width: 262px; padding: 14px; background: #080b10; border-left: 1px solid #143024;
-    overflow-y: auto; flex-shrink: 0;
+    overflow-y: auto; flex-shrink: 0; touch-action: pan-y;
   }
   #panel.hidden { display: none; }
   #panel h1 { font-size: 12px; margin: 0 0 10px; letter-spacing: .12em; color: var(--fg); }
@@ -27,18 +32,82 @@
   #panel label { display: block; margin: 8px 0; color: #7fbfa4; }
   #panel .val { float: right; color: var(--fg); }
   #panel input[type=range] { width: 100%; accent-color: var(--fg); }
+  #panel input[type=text] {
+    width: 100%; background: #0d1418; border: 1px solid #1d3a2c; color: var(--fg);
+    font: inherit; padding: 5px;
+  }
   #panel kbd { background: #0d1418; border: 1px solid #1d3a2c; padding: 1px 4px; border-radius: 2px; color: var(--fg); }
-  #hud { position: fixed; left: 10px; bottom: 8px; color: #2c6b52; font-size: 10px; }
+  #hud { position: fixed; left: 10px; top: 4px; color: #2c6b52; font-size: 10px; pointer-events: none; }
+
+  #gear {
+    position: fixed; right: 8px; top: 24px; z-index: 6; width: 30px; height: 30px;
+    background: #0d1418cc; color: var(--fg); border: 1px solid #1d3a2c; border-radius: 4px;
+    font: 700 14px ui-monospace, monospace; cursor: pointer;
+  }
+
+  #pad { position: fixed; inset: auto 0 0 0; z-index: 5; display: none; pointer-events: none; }
+  .cluster { position: absolute; bottom: 60px; display: grid; gap: 6px; pointer-events: auto; }
+  #dpad { left: 12px; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); }
+  #acts { right: 12px; grid-template-columns: repeat(2, 54px); grid-template-rows: repeat(2, 54px); }
+  .kb {
+    background: #0c151acc; color: #bfeee0; border: 1px solid #245040; border-radius: 8px;
+    font: 700 13px ui-monospace, monospace; display: flex; align-items: center; justify-content: center;
+    user-select: none; touch-action: none;
+  }
+  .kb.on { background: var(--fg); color: #04120b; }
+  #dpad .n { grid-column: 2; grid-row: 1; }
+  #dpad .s { grid-column: 2; grid-row: 3; }
+  #dpad .w { grid-column: 1; grid-row: 2; }
+  #dpad .e { grid-column: 3; grid-row: 2; }
+  #chatbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 7; display: none; gap: 6px;
+    padding: 8px; background: #060a0edd; pointer-events: auto;
+  }
+  #chatbar input { flex: 1; background: #0d1418; border: 1px solid #1d3a2c; color: #cfe; font: inherit; padding: 8px; }
+  @media (pointer: coarse) {
+    #pad { display: block; }
+    #panel {
+      position: fixed; right: 0; top: 0; bottom: 0; width: min(88vw, 320px); z-index: 9;
+      box-shadow: -8px 0 30px #000;
+    }
+    #chatbar { display: flex; }
+    #hud { font-size: 9px; }
+  }
 </style>
 </head>
 <body>
   <div id="stage"><canvas id="out"></canvas></div>
 
+  <button id="gear" title="painel">⚙</button>
+
+  <div id="pad">
+    <div class="cluster" id="dpad">
+      <div class="kb n" data-k="w">▲</div>
+      <div class="kb w" data-k="a">◀</div>
+      <div class="kb e" data-k="d">▶</div>
+      <div class="kb s" data-k="s">▼</div>
+    </div>
+    <div class="cluster" id="acts">
+      <div class="kb" data-t="bag" style="grid-column:1;grid-row:1">BAG</div>
+      <div class="kb" data-t="interact" style="grid-column:1;grid-row:2">USE</div>
+      <div class="kb" data-t="attack" style="grid-column:2;grid-row:1">ATK</div>
+      <div class="kb" data-t="cast" style="grid-column:2;grid-row:2">SPK</div>
+    </div>
+  </div>
+
+  <form id="chatbar">
+    <input id="chatIn" type="text" placeholder="falar…" autocomplete="off" maxlength="120" />
+    <button class="kb" type="submit" style="padding:0 12px">DIZER</button>
+  </form>
+
   <aside id="panel">
-    <h1>GLYPH FALL</h1>
+    <h1>GLYPH FALL · ASCII MMORPG</h1>
     <button id="startBtn">NEW WORLD</button>
     <button id="saveBtn">SAVE [P]</button>
-    <button id="panelBtn">HIDE [H]</button>
+    <button id="panelBtn">FECHAR [H]</button>
+
+    <h2>NOME</h2>
+    <input id="nameIn" type="text" maxlength="12" placeholder="HERALD" />
 
     <h2>CHARSET</h2>
     <div id="sets"></div>
@@ -75,9 +144,9 @@
     <h2>TECLAS</h2>
     <div>
       <kbd>wasd</kbd>/<kbd>setas</kbd> andar · <kbd>j</kbd> atacar · <kbd>l</kbd> spark<br />
-      <kbd>e</kbd> interagir/usar · <kbd>q</kbd> quest · <kbd>u</kbd> equipar · <kbd>i</kbd> bolsa<br />
-      <kbd>1-9</kbd> charset · <kbd>t</kbd> cicla charset · <kbd>c</kbd> cores · <kbd>[ ]</kbd> scale<br />
-      <kbd>g</kbd> grão · <kbd>n</kbd> scanlines · <kbd>b</kbd> bloom · <kbd>v</kbd> vinheta · <kbd>r</kbd> crt<br />
+      <kbd>e</kbd> interagir · <kbd>q</kbd> quest · <kbd>u</kbd> equipar · <kbd>i</kbd> bolsa<br />
+      <kbd>enter</kbd> falar · <kbd>1-9</kbd> charset · <kbd>t</kbd> cicla charset · <kbd>c</kbd> cores<br />
+      <kbd>[ ]</kbd> scale · <kbd>g</kbd> grão · <kbd>n</kbd> scanlines · <kbd>b</kbd> bloom · <kbd>v</kbd> vinheta · <kbd>r</kbd> crt<br />
       <kbd>m</kbd> match quality · <kbd>p</kbd> salvar · <kbd>h</kbd> painel
     </div>
   </aside>

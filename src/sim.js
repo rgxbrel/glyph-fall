@@ -51,9 +51,18 @@ function makePlayer(id, name) {
 }
 
 export function placeAtSpawn(state, map) {
-  for (const p of Object.values(state.players)) {
-    p.x = map.spawn.x; p.y = map.spawn.y;
-  }
+  for (const p of Object.values(state.players)) spawnPoint(state, map, p);
+}
+
+/* Everyone would otherwise stack on the same pixel: melee cannot aim at an
+ * overlapping body and the figures render on top of each other. */
+export function spawnPoint(state, map, p) {
+  const k = (p && p.id ? (p.id.charCodeAt(0) * 31 + Number(p.id.slice(1))) : 0) % 17;
+  const a = k * 0.37;
+  const r = 26 + (k % 4) * 14;
+  const x = map.spawn.x + Math.cos(a) * r, y = map.spawn.y + Math.sin(a) * r;
+  if (map.solidAt(x, y)) { p.x = map.spawn.x; p.y = map.spawn.y; return; }
+  p.x = x; p.y = y;
 }
 
 export function spawnWorld(state, map) {
@@ -82,31 +91,44 @@ export function applyCommand(state, tick, playerId, cmd) {
   if (p.dead && cmd.t !== 'move') return;
   switch (cmd.t) {
     case 'move': p.inx = clamp(cmd.dx, -1, 1); p.iny = clamp(cmd.dy, -1, 1); break;
-    case 'attack': attack(state, p); break;
-    case 'cast': cast(state, p, cmd.skill); break;
+    case 'attack': attack(state, p, cmd.target); break;
+    case 'cast': cast(state, p, cmd.skill, cmd.target); break;
     case 'interact': interact(state, p); break;
     case 'use': useItem(state, p, cmd.slot); break;
     case 'equip': equipItem(state, p, cmd.slot); break;
     case 'dialogue': state.dialogue = cmd.payload; break;
+    case 'quest': acceptQuest(state); break;
+    case 'questin': turnInQuest(state, p); break;
+    case 'close': state.dialogue = null; break;
     default: break;
   }
 }
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-function attack(state, p) {
+function attack(state, p, targetId) {
   if (p.cds.attack > 0) return;
   p.cds.attack = 0.34;
   const wep = p.equip.weapon ? ITEMS[p.equip.weapon] : null;
   const dmg = Math.round(4 + p.stats.str * 1.1 + (wep ? wep.dmg : 0));
   const ax = Math.cos(p.face), ay = Math.sin(p.face);
   let hit = false;
+  const aimed = (dx, dy, d) => d < 18 || (dx * ax + dy * ay) / d > 0.45;
+  const victim = targetId && targetId !== p.id ? state.players[targetId] : null;
+  if (victim && !victim.dead) {
+    const dx = victim.x - p.x, dy = victim.y - p.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 52 + victim.r && aimed(dx, dy, d || 1)) {
+      hurtPlayer(state, victim, dmg, p);
+      hit = true;
+    }
+  }
   for (const e of Object.values(state.enemies)) {
     if (!e.alive) continue;
     const dx = e.x - p.x, dy = e.y - p.y;
     const d = Math.hypot(dx, dy);
     if (d > 52 + e.r) continue;
-    if ((dx * ax + dy * ay) / (d || 1) < 0.45) continue;
+    if (!aimed(dx, dy, d || 1)) continue;
     damageEnemy(state, e, dmg, p);
     hit = true;
   }
@@ -114,7 +136,7 @@ function attack(state, p) {
   if (hit) p.flash = 1;
 }
 
-function cast(state, p, skillId) {
+function cast(state, p, skillId, targetId) {
   const sk = SKILLS[skillId];
   if (!sk || p.cds.cast > 0 || p.mp < sk.mp) return;
   p.cds.cast = sk.cd;
@@ -122,7 +144,7 @@ function cast(state, p, skillId) {
   const id = String(state.nextNetId++);
   const dmg = Math.round(6 + p.stats.int * 1.4);
   state.projectiles[id] = {
-    id, owner: p.id, skill: skillId, x: p.x + Math.cos(p.face) * 14, y: p.y + Math.sin(p.face) * 14,
+    id, owner: p.id, target: targetId || null, skill: skillId, x: p.x + Math.cos(p.face) * 14, y: p.y + Math.sin(p.face) * 14,
     vx: Math.cos(p.face) * sk.speed, vy: Math.sin(p.face) * sk.speed, life: sk.life, dmg,
   };
 }
@@ -235,7 +257,7 @@ function stepPlayer(state, map, p, dt) {
     p.respawn -= dt;
     if (p.respawn <= 0) {
       p.dead = false; p.hp = p.hpMax; p.mp = p.mpMax;
-      p.x = map.spawn.x; p.y = map.spawn.y;
+      spawnPoint(state, map, p);
       state.log.push({ tick: state.tick, text: 'RESTORED' });
     }
     return;
@@ -306,13 +328,19 @@ function stepEnemies(state, map, dt) {
   }
 }
 
-function hurtPlayer(state, p, raw) {
+function hurtPlayer(state, p, raw, by) {
   if (p.iframes > 0) return;
   const armor = p.equip.armor ? ITEMS[p.equip.armor].def : 0;
   const dmg = Math.max(1, Math.round(raw - armor - p.stats.dex * 0.3));
   p.hp -= dmg;
   p.iframes = 0.5;
   p.flash = 1;
+  if (by) state.log.push({ tick: state.tick, text: `${p.name} HIT BY ${by.name} -${dmg}` });
+  if (p.hp <= 0) {
+    p.dead = true; p.respawn = 2.5;
+    state.log.push({ tick: state.tick, text: by ? `${p.name} FELL TO ${by.name}` : `${p.name} FELL` });
+    if (by) { by.kills++; by.marks += 5 + p.level; }
+  }
 }
 
 function stepProjectiles(state, map, dt) {
@@ -324,6 +352,16 @@ function stepProjectiles(state, map, dt) {
       if (!e.alive) continue;
       if (Math.hypot(e.x - pr.x, e.y - pr.y) < e.r + 6) {
         damageEnemy(state, e, pr.dmg, state.players[pr.owner]);
+        delete state.projectiles[pr.id];
+        break;
+      }
+    }
+    if (!state.projectiles[pr.id]) continue;
+    const owner = state.players[pr.owner];
+    for (const q of Object.values(state.players)) {
+      if (q.id === pr.owner || q.dead) continue;
+      if (Math.hypot(q.x - pr.x, q.y - pr.y) < q.r + 6) {
+        hurtPlayer(state, q, pr.dmg, owner);
         delete state.projectiles[pr.id];
         break;
       }
