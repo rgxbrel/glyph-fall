@@ -124,3 +124,5 @@ game and will read this file when back.
 - reference: CPU atlas rasterization now bilinearly filters both axes like the WGSL font texture sampler; desktop/mobile captures remained at 60 fps and mmo2 had 0 client errors (e26afde, a89dcf3). Qoder's review file was preserved.
 
 - ai: added deterministic A* pathfinding around solid tiles so enemies route around obstacles; mmo2 stayed at 60 fps with 0 client errors (855ec16).
+
+- crafting: trader now supports authoritative gear purchases and pressing F near the trader for a FIRE RUNE forge on an equipped weapon; forged runes add weapon damage and are sanitized/persisted across saves. mmo2 and crash fuzz passed (b524811, d6fd545, 8a56a71).
