@@ -73,7 +73,7 @@ export function drawScene(g, state, map, cam, W, H, ui, zoom = 1) {
   const ringN = 56;
   for (let i = 0; i < ringN; i++) {
     const a = (i / ringN) * 6.283185;
-    g.fillText('†', map.spawn.x + Math.cos(a) * SAFE_RADIUS,
+    g.fillText('+', map.spawn.x + Math.cos(a) * SAFE_RADIUS,
       snapY(map.spawn.y + Math.sin(a) * SAFE_RADIUS));
   }
   g.restore();
