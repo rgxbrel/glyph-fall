@@ -156,3 +156,20 @@ game and will read this file when back.
 - prototype-survival: Godot prototype now resolves enemy contact with pushback, 5-heart damage, invulnerability frames and reset, plus a player-follow camera; runtime/editor validation under Xvfb/Godot 3.6 had no script errors.
 - prototype-boss: isolated Godot arena now includes a 30-HP three-phase boss, nearest-target projectile hits, expanding telegraph ring and timed AoE damage; Godot 3.6 runtime/editor validation had no script errors.
 - prototype-systems: added HUD, score, dash cooldown, boss defeat/reset flow, heart and mana drops with auto-pickup; Godot 3.6 runtime completed without script errors.
+- item 4 (vendor/shop) is done, and it uncovered that the whole dialogue path was
+  dead online: `state.dialogue` was one shared field on the host, absent from the
+  snapshot, and settable by any client via `{t:'dialogue'}` with any caption. The
+  trader/elder panels therefore never opened in the MMO, and every earlier claim
+  about purchases was only true in ?offline=1 (REVIEW-2026-11-03 item 1's shape
+  check existed precisely because of this; both are gone now).
+  Dialogue is per player, host-derived from the npc list, shipped in each socket's
+  own `me` row, and cleared past 70px. 23 unit checks + live two-client proof:
+  sell 0->2->4 then buy back 4->0, peer dialogue stays null, one mobile tap on the
+  SELL row sells. Harness kept in `.work/shop_unit.mjs` and `.work/shop_e2e.js`.
+- also fixed while measuring the mobile tap: `#chatbar` is fixed over the bottom
+  of the canvas, so the last rows of any dialogue panel were unreachable. The
+  panel now reserves that strip (ui.chatReserve, measured in fit()).
+- backlog: item 4 -> DONE. Item 14's `#global` channel already exists in
+  server.mjs:291; name colour by level and a say radius are still open.
+- host note: two chromium-less ghost sockets cleared themselves within one 20 s
+  heartbeat cycle after their browsers were killed; the reaper is fine.
