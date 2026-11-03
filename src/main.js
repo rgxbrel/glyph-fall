@@ -88,6 +88,7 @@ function fit() {
 
 const keys = new Set();
 const pending = [];
+let attackRepeat = null;
 let audio = null;
 let audioLogIndex = 0;
 let rainSource = null;
@@ -253,14 +254,21 @@ for (const el of document.querySelectorAll('#pad .kb')) {
     e.preventDefault();
     el.classList.add('on');
     if (key) { keys.add(key); return; }
-    if (act === 'attack') queue({ t: 'attack', target: nearestTarget() });
+    if (act === 'attack') {
+      queue({ t: 'attack', target: nearestTarget() });
+      attackRepeat = setInterval(() => queue({ t: 'attack', target: nearestTarget() }), 180);
+    }
     else if (act === 'cast') queue({ t: 'cast', skill: 'spark', target: nearestTarget() });
     else if (act === 'heal') queue({ t: 'cast', skill: 'heal' });
     else if (act === 'frost') queue({ t: 'cast', skill: 'frost' });
     else if (act === 'interact') queue({ t: 'interact' });
     else if (act === 'bag') { ui.inventoryOpen = !ui.inventoryOpen; syncUi(); }
   };
-  const up = () => { el.classList.remove('on'); if (key) keys.delete(key); };
+  const up = () => {
+    el.classList.remove('on');
+    if (key) keys.delete(key);
+    if (act === 'attack' && attackRepeat) { clearInterval(attackRepeat); attackRepeat = null; }
+  };
   el.addEventListener('pointerdown', down);
   el.addEventListener('pointerup', up);
   el.addEventListener('pointercancel', up);
