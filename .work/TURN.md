@@ -120,3 +120,5 @@ game and will read this file when back.
 
 - reference: glyph matching now averages the same per-cell sample grid as Grainrad WGSL; color modes now match original/grayscale/mono/sepia semantics, with phosphor retained as an explicit extra. look and mmo2 stayed at 60 fps with 0 errors (a797057, 8049a25).
 - scope: removed the non-reference minimap experiment so the lane stays focused on Grainrad replication (17c25f0).
+
+- reference: CPU atlas rasterization now bilinearly filters both axes like the WGSL font texture sampler; desktop/mobile captures remained at 60 fps and mmo2 had 0 client errors (e26afde, a89dcf3). Qoder's review file was preserved.
