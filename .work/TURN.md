@@ -106,3 +106,5 @@ game and will read this file when back.
 - audio: procedural hit, level-up, heal, frost and rain cues added in 8dd069f; desktop/mobile captures remained at 60 fps, /health and /rank stayed healthy.
 
 - mobile-combat: holding ATTACK now retargets and queues strikes every 180ms; mmo2 regression stayed at 60 fps with 0 client errors (fccf148).
+
+- safe-spawn: procedural enemies inside SAFE_RADIUS are now skipped at world generation; safe_live confirmed damage remains blocked in plaza and resumes at 264px; crash fuzz kept host ticking with websocket open (e9afcd0).
