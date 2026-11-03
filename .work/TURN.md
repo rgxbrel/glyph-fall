@@ -117,3 +117,6 @@ game and will read this file when back.
 - onboarding: mobile first-run guidance explains movement, attack, spells, interaction; it dismisses on any control/world tap and persists locally. Desktop/mobile look remained at 60 fps (60bd79e).
 
 - network: Net.dispose now cancels stale reconnect attempts when the initial host lookup falls back offline; node checks and mmo2 passed at 60 fps with 0 errors (5128481).
+
+- reference: glyph matching now averages the same per-cell sample grid as Grainrad WGSL; color modes now match original/grayscale/mono/sepia semantics, with phosphor retained as an explicit extra. look and mmo2 stayed at 60 fps with 0 errors (a797057, 8049a25).
+- scope: removed the non-reference minimap experiment so the lane stays focused on Grainrad replication (17c25f0).
