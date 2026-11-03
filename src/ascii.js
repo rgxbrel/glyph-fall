@@ -115,8 +115,16 @@ export class AsciiPass {
           let mask = 0;
           if (!inGapY && !(u < half || u > 1 - half)) {
             const rx = Math.min(1, Math.max(0, (u - half) * inv));
-            const axp = Math.min(this.acw - 1, Math.floor(rx * this.acw));
-            mask = this.atlas[(aoy + ayp) * this.aW + (aox + axp)];
+            // textureSample in the original atlas pass is bilinear; reproduce
+            // its half-texel coordinate convention instead of nearest sampling.
+            const axf = aox + rx * this.acw - 0.5;
+            const x0 = Math.max(0, Math.min(this.aW - 1, Math.floor(axf)));
+            const x1 = Math.max(0, Math.min(this.aW - 1, x0 + 1));
+            const xf = axf - Math.floor(axf);
+            const y0 = Math.max(0, Math.min(this.aH - 1, aoy + ayp));
+            const y1 = y0;
+            const a0 = this.atlas[y0 * this.aW + x0], a1 = this.atlas[y1 * this.aW + x1];
+            mask = a0 + (a1 - a0) * xf;
           }
           this.tiles[ci * tw * th + py * tw + px] = mask;
         }
