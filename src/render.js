@@ -136,6 +136,7 @@ export function drawScene(g, state, map, cam, W, H, ui, zoom = 1) {
 
   drawAmbient(g, state, W, H);
   drawWeather(g, state, W, H);
+  drawDayNight(g, state, W, H);
   drawHud(g, state, map, W, H, ui, px);
 }
 
@@ -211,6 +212,19 @@ function drawWeather(g, state, W, H) {
     g.fillRect(0, 0, W, H);
   }
   g.restore();
+}
+
+function drawDayNight(g, state, W, H) {
+  const cycle = (state.time % 360) / 360;
+  const light = 0.5 + 0.5 * Math.sin(cycle * Math.PI * 2 - Math.PI / 2);
+  const night = 1 - light;
+  if (night < 0.08) return;
+  g.fillStyle = `rgba(8,18,42,${0.04 + night * 0.12})`;
+  g.fillRect(0, 0, W, H);
+  if (light > 0.7) {
+    g.fillStyle = `rgba(110,150,90,${(light - 0.7) * 0.06})`;
+    g.fillRect(0, 0, W, H);
+  }
 }
 
 function wave(t, i) { return Math.sin(t * 2 + i) * 3; }
