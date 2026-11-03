@@ -122,3 +122,5 @@ game and will read this file when back.
 - scope: removed the non-reference minimap experiment so the lane stays focused on Grainrad replication (17c25f0).
 
 - reference: CPU atlas rasterization now bilinearly filters both axes like the WGSL font texture sampler; desktop/mobile captures remained at 60 fps and mmo2 had 0 client errors (e26afde, a89dcf3). Qoder's review file was preserved.
+
+- ai: added deterministic A* pathfinding around solid tiles so enemies route around obstacles; mmo2 stayed at 60 fps with 0 client errors (855ec16).
