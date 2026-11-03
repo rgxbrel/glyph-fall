@@ -171,9 +171,16 @@ const httpSrv = createServer(async (req, res) => {
       chats: chats,
     }));
   }
+  const rawPath = req.url.split('?')[0];
+  if (rawPath === '/saves.json' || rawPath === '/.work/TURN.md' || rawPath.startsWith('/.')) { res.writeHead(404).end('not found'); return; }
   const rel = normalize(decodeURIComponent(req.url.split('?')[0]) || '/').replace(/^[/\\]+/, '');
-  const file = join(ROOT, rel === '' ? 'index.html' : rel);
-  if (!file.startsWith(ROOT)) { res.writeHead(403).end(); return; }
+  const requested = rel === '' ? 'index.html' : rel;
+  if (requested.startsWith('.') || requested.includes('/.') ||
+      requested === 'saves.json' || requested.startsWith('.work/')) {
+    res.writeHead(404).end('not found'); return;
+  }
+  const file = join(ROOT, requested);
+  if (!file.startsWith(ROOT + '/') && file !== ROOT) { res.writeHead(403).end(); return; }
   try {
     const info = await stat(file);
     if (info.isDirectory()) throw new Error('dir');
@@ -211,7 +218,15 @@ wss.on('connection', (ws) => {
     }
     const c = clients.get(ws);
     if (!c) return;
-    if (m.ty === 'cmd') pendingCmds.push([c.pid, m.cmd]);
+    if (m.ty === 'cmd') {
+      if (!m.cmd || typeof m.cmd !== 'object' || Array.isArray(m.cmd)) return;
+      if (m.cmd.t === 'dialogue' &&
+          (!m.cmd.payload || typeof m.cmd.payload !== 'object' ||
+           Array.isArray(m.cmd.payload) || typeof m.cmd.payload.who !== 'string' ||
+           m.cmd.payload.who.length > 24 || typeof m.cmd.payload.name !== 'string' ||
+           m.cmd.payload.name.length > 48)) return;
+      pendingCmds.push([c.pid, m.cmd]);
+    }
     else if (m.ty === 'chat') {
       const text = String(m.text || '').slice(0, 120);
       if (text.trim()) pushChat(c.name, text);
