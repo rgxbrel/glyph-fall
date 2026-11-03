@@ -153,3 +153,4 @@ game and will read this file when back.
 - checked, no change needed: the ghost players (BETA/HERALD) were live sockets of
   those leaked browsers, not missing reaping. With all chromium killed, the host
   dropped the last one within one 20 s heartbeat cycle.
+- prototype-survival: Godot prototype now resolves enemy contact with pushback, 5-heart damage, invulnerability frames and reset, plus a player-follow camera; runtime/editor validation under Xvfb/Godot 3.6 had no script errors.

@@ -6,6 +6,7 @@ This isolated prototype tests the ASCII Realms direction without changing the ma
 - ASCII canvas shader post-process
 - Arrow keys/WASD move the player (bounded arena)
 - Space fires homing animated projectiles at the nearest enemy
-- Enemies pursue the player, take three hits, disappear briefly, then respawn
+- Enemies pursue the player, collide, deal contact damage with brief invulnerability, take three hits, disappear briefly, then respawn
+- Camera follows the player while keeping the bounded arena in view
 
 Run with Godot 3.x and `project.godot`.
