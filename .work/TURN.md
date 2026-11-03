@@ -130,3 +130,5 @@ game and will read this file when back.
 - prototype: installed Godot 3.6 and Blender 4.3.2 on active Tailscale VPS ultron-he; added isolated Godot 3D scene with terrain, player, enemies, lighting and ASCII postprocess shader. Project validated under xvfb with dummy audio; main MMO lane untouched (e0c59b7).
 
 - prototype-combat: isolated Godot ASCII scene now supports arrow/WASD movement and Space projectile attacks with animated fire bolts; Godot editor validation found no parse errors, and the main host remained healthy (efd2c38).
+
+- qoder-handoff: applied the review finding that `†` is outside supported glyphs; safe-zone ring now uses `+`, present in every relevant charset. look stayed at 60 fps and safe_live still blocked plaza damage/resumed it at 264px (be0e863).
