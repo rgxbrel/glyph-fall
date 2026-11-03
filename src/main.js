@@ -43,6 +43,7 @@ if (wantOnline) {
   net = new Net({ state, map, name, onLog: (t) => state.log.push({ tick: state.tick, text: t }) });
   setTimeout(() => {
     if (net && !net.connected) {
+      net.dispose();
       net = null;
       state = offlineState();
       state.log.push({ tick: state.tick, text: 'HOST UNREACHABLE · MODO OFFLINE' });

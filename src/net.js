@@ -33,6 +33,7 @@ export class Net {
     this.chats = [];
     this.seenChat = new Set();
     this.connected = false;
+    this.stopped = false;
     this.algo = 0;
     this.retry = 0;
     this.connect();
@@ -45,6 +46,7 @@ export class Net {
   }
 
   connect() {
+    if (this.stopped) return;
     try { this.ws = new WebSocket(this.wsUrl()); } catch (e) { this.backoff(); return; }
     this.ws.onopen = () => { this.connected = true; this.retry = 0; this.send({ ty: 'join', name: this.name }); };
     this.ws.onmessage = (ev) => {
@@ -52,16 +54,23 @@ export class Net {
       if (m.ty === 'hello') this.onHello(m);
       else if (m.ty === 'snap') this.onSnap(m);
     };
-    this.ws.onclose = () => { this.connected = false; this.backoff(); };
+    this.ws.onclose = () => { this.connected = false; if (!this.stopped) this.backoff(); };
     this.ws.onerror = () => { try { this.ws.close(); } catch { /* already down */ } };
   }
 
   backoff() {
+    if (this.stopped) return;
     this.retry = Math.min(20, (this.retry || 0) + 1);
     setTimeout(() => this.connect(), 500 * Math.min(8, this.retry));
   }
 
-  send(m) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(m)); }
+  dispose() {
+    this.stopped = true;
+    this.connected = false;
+    try { this.ws?.close(); } catch { /* already closed */ }
+  }
+
+  send(m) { if (!this.stopped && this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(m)); }
   sendCmd(cmd) { this.send({ ty: 'cmd', cmd }); }
   chat(text) { if (text.trim()) this.send({ ty: 'chat', text: text.slice(0, 120) }); }
 
