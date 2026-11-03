@@ -22,7 +22,7 @@ state.serverName = 'GLYPH FALL';
 state.npcList = map.npcs;
 spawnWorld(state, map);
 
-const clients = new Map(); // ws -> { pid, name, alive, lastMove }
+const clients = new Map(); // ws -> { pid, name, alive, lastMove, windowStart, cmdCount, chatCount }
 let pendingCmds = [];
 
 /* Progress belongs to the host, not the browser: a client-side save is gone the
@@ -118,7 +118,7 @@ function joinPlayer(ws, name) {
     cds: { attack: 0, cast: 0 }, iframes: 0, dead: false, respawn: 0, kills: 0,
     inx: 0, iny: 0,
   };
-  clients.set(ws, { pid: id, name: state.players[id].name });
+  clients.set(ws, { pid: id, name: state.players[id].name, windowStart: Date.now(), cmdCount: 0, chatCount: 0 });
   const p = state.players[id];
   const prev = cleanSave(saves[p.name]);
   if (prev && Number.isFinite(prev.level)) {
@@ -204,6 +204,7 @@ wss.on('connection', (ws) => {
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
   ws.on('message', (buf) => {
+    if (buf.length > 65536) return;
     let m;
     try { m = JSON.parse(buf.toString()); } catch { return; }
     if (m.ty === 'join') {
@@ -218,7 +219,15 @@ wss.on('connection', (ws) => {
     }
     const c = clients.get(ws);
     if (!c) return;
+    const now = Date.now();
+    if (now - c.windowStart >= 1000) {
+      c.windowStart = now;
+      c.cmdCount = 0;
+      c.chatCount = 0;
+    }
     if (m.ty === 'cmd') {
+      if (++c.cmdCount > 120) return;
+      if (pendingCmds.length >= 5000) return;
       if (!m.cmd || typeof m.cmd !== 'object' || Array.isArray(m.cmd)) return;
       if (m.cmd.t === 'dialogue' &&
           (!m.cmd.payload || typeof m.cmd.payload !== 'object' ||
@@ -228,6 +237,7 @@ wss.on('connection', (ws) => {
       pendingCmds.push([c.pid, m.cmd]);
     }
     else if (m.ty === 'chat') {
+      if (++c.chatCount > 10) return;
       const text = String(m.text || '').slice(0, 120);
       if (text.trim()) pushChat(c.name, text);
     } else if (m.ty === 'leave') leavePlayer(ws);
