@@ -113,3 +113,5 @@ game and will read this file when back.
 
 - pickups: MANA ROOT now renders blue instead of green; look regression stayed at 60 fps on desktop/mobile and mmo2 had 0 errors (dbaa2dc).
 - quest: accepting an already active quest is now idempotent and preserves kills; direct sim assertion and mmo2 passed (d291810).
+
+- onboarding: mobile first-run guidance explains movement, attack, spells, interaction; it dismisses on any control/world tap and persists locally. Desktop/mobile look remained at 60 fps (60bd79e).
