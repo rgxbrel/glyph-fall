@@ -88,6 +88,42 @@ function fit() {
 
 const keys = new Set();
 const pending = [];
+let audio = null;
+let audioLogIndex = 0;
+let rainSource = null;
+function audioContext() {
+  if (!audio) audio = new AudioContext();
+  if (audio.state === 'suspended') audio.resume();
+  return audio;
+}
+function tone(freq, duration = 0.08, gain = 0.035, type = 'sine') {
+  const ac = audioContext(), osc = ac.createOscillator(), amp = ac.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  amp.gain.setValueAtTime(gain, ac.currentTime);
+  amp.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + duration);
+  osc.connect(amp).connect(ac.destination); osc.start(); osc.stop(ac.currentTime + duration);
+}
+function updateAudio() {
+  const logs = state.log || [];
+  for (; audioLogIndex < logs.length; audioLogIndex++) {
+    const text = logs[audioLogIndex].text || '';
+    if (text.includes('HIT BY')) tone(110, 0.12, 0.05, 'square');
+    else if (text.startsWith('LEVEL')) { tone(520, 0.12); setTimeout(() => tone(780, 0.16), 90); }
+    else if (text.includes('HEAL')) tone(660, 0.12);
+    else if (text.includes('FROST')) tone(240, 0.16, 0.04, 'triangle');
+  }
+  if (audioLogIndex > 80) audioLogIndex = Math.max(0, logs.length - 8);
+  const rain = (state.weather || 0) > 0.05;
+  if (rain && !rainSource) {
+    const ac = audioContext(), buffer = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.08;
+    rainSource = ac.createBufferSource(); rainSource.buffer = buffer; rainSource.loop = true;
+    const gain = ac.createGain(); gain.gain.value = 0.025; rainSource.connect(gain).connect(ac.destination); rainSource.start();
+  } else if (!rain && rainSource) { rainSource.stop(); rainSource = null; }
+}
+addEventListener('pointerdown', () => { try { audioContext(); } catch {} }, { once: true });
+addEventListener('keydown', () => { try { audioContext(); } catch {} }, { once: true });
 const localId = () => state.local;
 
 function nearestTarget() {
@@ -316,6 +352,7 @@ function frame(now) {
 
   drawScene(pass.sceneCtx, state, map, cam, pass.W, pass.H, ui, zoom);
   pass.render(state.time);
+  updateAudio();
   syncHud();
   requestAnimationFrame(frame);
 }
