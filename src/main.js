@@ -7,7 +7,7 @@ import { generateMap, TILE } from './world.js';
 import { createState, placeAtSpawn, spawnWorld, stepSim, applyCommand, serialize, deserialize, TICK } from './sim.js';
 import { drawScene, weatherAt } from './render.js';
 import { CHARSETS } from './config.js';
-import { ITEMS, DIALOGUES } from './data.js';
+import { ITEMS, DIALOGUES, STOCK, sellOf } from './data.js';
 import { Net } from './net.js';
 
 const SAVE_KEY = 'glyph-rpg-save';
@@ -71,11 +71,28 @@ pass.buildAtlas(); pass.buildTiles(); pass.buildCellMap();
 
 const ui = {
   inventoryOpen: false,
+  shopSel: 0,
+  shopLineStart: -1,
+  chatReserve: 0,
+  /* Per player, because the host keeps one world: A's conversation must not open
+   * a panel on B's screen. */
+  dialogueOf: (st) => (st.players[st.local] || {}).dialogue || null,
   dialogueLines: (st) => {
-    const d = DIALOGUES[st.dialogue.who];
-    if (!d) return [];
+    const dlg = ui.dialogueOf(st);
+    const d = dlg && DIALOGUES[dlg.who];
+    if (!d) { ui.shopLineStart = -1; return []; }
     const lines = [`> ${d[0].q}   ${d[0].a}`, `> ${d[1].q}   ${d[1].a}`];
-    if (st.dialogue.who === 'elder') lines.push(st.quest.active ? '[q] report  ' + st.quest.kills + '/5' : '[q] accept quest');
+    if (dlg.who === 'elder') lines.push(st.quest.active ? '[q] report  ' + st.quest.kills + '/5' : '[q] accept quest');
+    if (dlg.who === 'trader') {
+      const rows = shopRows(st);
+      if (ui.shopSel >= rows.length) ui.shopSel = Math.max(0, rows.length - 1);
+      lines.push('. and , pick a row   B takes the deal');
+      ui.shopLineStart = lines.length;
+      rows.forEach((r, i) => {
+        const tag = r.mode === 'buy' ? 'BUY ' : 'SELL';
+        lines.push(`${i === ui.shopSel ? '>' : ' '}${tag} ${r.label.padEnd(13)}${(r.price + 'm').padStart(6)}${r.ok ? '' : '  NO MARKS'}`);
+      });
+    } else ui.shopLineStart = -1;
     return lines;
   },
 };
@@ -91,6 +108,11 @@ addEventListener('orientationchange', () => setTimeout(fit, 250));
 function fit() {
   const stage = document.getElementById('stage');
   pass.resize(stage.clientWidth, stage.clientHeight);
+  /* The chat bar is fixed over the bottom of the canvas on touch layouts, so any
+   * row drawn inside that strip is unreachable by a tap. Tell the renderer. */
+  const bar = document.getElementById('chatbar'), cv = document.getElementById('out');
+  const bb = bar.getBoundingClientRect(), cb = cv.getBoundingClientRect();
+  ui.chatReserve = bb.height > 0 ? Math.round(Math.max(0, cb.bottom - bb.top) * (pass.H / cb.height)) : 0;
 }
 
 /* ------------------------------------------------------------------ input -- */
@@ -184,21 +206,26 @@ addEventListener('keydown', (e) => {
     return;
   }
 
-  if (k === 'b' && state.dialogue?.who === 'trader') {
-    const p = state.players[localId()];
-    const item = p?.marks >= 70 ? 'ward' : p?.marks >= 60 ? 'blade' : p?.marks >= 25 ? 'coat' : p?.marks >= 20 ? 'dagger' : null;
-    if (item) queue({ t: 'trade', item });
-    syncUi();
-    return;
+  /* The trader panel owns these keys while it is open: a cursor over the rows
+   * instead of the old "buy whatever the bag can afford". */
+  if (ui.dialogueOf(state)?.who === 'trader') {
+    const rows = shopRows(state);
+    if (k === ',') { ui.shopSel = (ui.shopSel + rows.length - 1) % Math.max(1, rows.length); syncUi(); return; }
+    if (k === '.') { ui.shopSel = (ui.shopSel + 1) % Math.max(1, rows.length); syncUi(); return; }
+    if (k === 'b') { takeDeal(ui.shopSel); syncUi(); return; }
   }
-  if (k === 'f' && state.dialogue?.who === 'trader') {
+  if (k === 'f' && ui.dialogueOf(state)?.who === 'trader') {
     const p = state.players[localId()];
     if (p?.equip.weapon && p.marks >= 30 && !p.runes?.weapon) queue({ t: 'forge', rune: 'fireRune' });
     syncUi();
     return;
   }
   switch (k) {
-    case 'j': case 'z': queue({ t: 'attack', target: nearestTarget() }); break;
+    case 'j': case 'z': case 'x':
+      e.preventDefault();
+      e.stopPropagation();
+      queue({ t: 'attack', target: nearestTarget() });
+      break;
     case 'l': queue({ t: 'cast', skill: 'spark', target: nearestTarget() }); break;
     case 'e': queue({ t: 'interact' }); break;
     case 'u': { const p = state.players[localId()]; queue({ t: 'equip', slot: firstEquipSlot(p) }); break; }
@@ -240,6 +267,28 @@ document.addEventListener('visibilitychange', () => {
   if (net) { net.sendCmd({ t: 'move', dx: 0, dy: 0 }); lastMove = { t: 'move', dx: 0, dy: 0 }; }
 });
 addEventListener('blur', () => keys.clear());
+
+function shopRows(st) {
+  const p = st.players[st.local];
+  if (!p) return [];
+  const rows = STOCK.map((id) => ({
+    mode: 'buy', item: id, label: ITEMS[id].name, price: ITEMS[id].value, ok: p.marks >= ITEMS[id].value,
+  }));
+  p.inv.forEach((s, i) => {
+    const it = ITEMS[s.id];
+    if (!it || !Number.isFinite(s.qty) || s.qty < 1) return;
+    rows.push({ mode: 'sell', slot: i, label: `${it.name} x${s.qty}`, price: sellOf(s.id), ok: true });
+  });
+  return rows;
+}
+
+/* Names a row, never a price: the host is what decides what a trade costs. */
+function takeDeal(index) {
+  const r = shopRows(state)[index];
+  if (!r || !r.ok) return false;
+  queue(r.mode === 'buy' ? { t: 'trade', mode: 'buy', item: r.item } : { t: 'trade', mode: 'sell', slot: r.slot });
+  return true;
+}
 
 function questCmd() {
   const p = state.players[localId()];
@@ -297,7 +346,6 @@ for (const el of document.querySelectorAll('#pad .kb')) {
     if (act === 'attack' && attackRepeat) { clearInterval(attackRepeat); attackRepeat = null; }
   };
   el.addEventListener('pointerdown', down);
-  el.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
   el.addEventListener('pointerup', up);
   el.addEventListener('pointercancel', up);
   el.addEventListener('pointerleave', up);
@@ -311,6 +359,20 @@ out.addEventListener('pointerdown', (e) => {
   const box = out.getBoundingClientRect();
   const sx = (e.clientX - box.left) * (pass.W / box.width);
   const sy = (e.clientY - box.top) * (pass.H / box.height);
+
+  /* On a touch screen there is no cursor key, so tapping a trader row selects it
+   * and closes the deal in the same press. */
+  const db = ui.dialogueBox;
+  if (db && ui.dialogueOf(state)?.who === 'trader' && ui.shopLineStart >= 0) {
+    const idx = Math.floor((sy - db.top + db.rowH * 0.5) / db.rowH);
+    if (idx >= ui.shopLineStart && idx < ui.shopLineStart + shopRows(state).length) {
+      ui.shopSel = idx - ui.shopLineStart;
+      takeDeal(ui.shopSel);
+      syncUi();
+      return;
+    }
+  }
+
   p.face = Math.atan2(sy / ZOOM + cam.y - p.y, sx / ZOOM + cam.x - p.x);
 });
 

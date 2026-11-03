@@ -312,15 +312,19 @@ function drawHud(g, state, map, W, H, ui, px) {
     g.fillText(`${c.name}: ${c.text}`, 8, base + tail.length * px(16) + i * px(16));
   });
 
-  if (state.dialogue) {
+  const dlg = ui.dialogueOf(state);
+  if (dlg) {
     const lines = ui.dialogueLines(state);
     const h = px(46) + lines.length * px(17);
-    g.fillStyle = 'rgba(3,6,10,0.9)'; g.fillRect(0, H - h, W, h);
+    const top = H - (ui.chatReserve || 0) - h;
+    g.fillStyle = 'rgba(3,6,10,0.9)'; g.fillRect(0, top, W, h);
     g.fillStyle = '#ffd23f'; g.font = `700 ${px(16)}px ui-monospace, monospace`;
-    g.fillText(state.dialogue.name, 12, H - h + px(22));
+    g.fillText(dlg.name, 12, top + px(22));
     g.fillStyle = '#c9ffe8'; g.font = `600 ${px(14)}px ui-monospace, monospace`;
-    lines.forEach((l, i) => g.fillText(l, 12, H - h + px(40) + i * px(17)));
-  }
+    lines.forEach((l, i) => g.fillText(l, 12, top + px(40) + i * px(17)));
+    /* Where the rows landed, so a tap on the panel can name the row it hit. */
+    ui.dialogueBox = { top: top + px(40), rowH: px(17), count: lines.length };
+  } else ui.dialogueBox = null;
 
   if (ui.inventoryOpen) {
     const w = Math.min(W - 16, px(256)), h = px(210);

@@ -9,6 +9,16 @@ export const ITEMS = {
   frostRune: { name: 'FROST RUNE', kind: 'rune', value: 30 },
 };
 
+/* What the trader keeps on the shelf, in the order the panel lists it. Runes are
+ * stock too: forging consumes one and there was no way to buy a second. */
+export const STOCK = ['dagger', 'coat', 'blade', 'ward', 'herb', 'mana', 'fireRune', 'frostRune'];
+
+/* Half back, never less than one, so a free pickup is not a money printer. */
+export function sellOf(id) {
+  const v = ITEMS[id] && ITEMS[id].value;
+  return Number.isFinite(v) ? Math.max(1, Math.floor(v / 2)) : 0;
+}
+
 export const SKILLS = {
   spark: { name: 'SPARK', mp: 8, cd: 0.45, speed: 420, life: 1.1, r: 6, kind: 'projectile' },
   heal: { name: 'HEAL', mp: 10, cd: 2.5, amount: 24, kind: 'heal' },
@@ -22,7 +32,7 @@ export const DIALOGUES = {
     { q: 'Goodbye.', a: 'Go. Mind the water; it eats sprites.' },
   ],
   trader: [
-    { q: 'Buy gear.', a: 'Press B near me: DAGGER 20, COAT 25, GLYPH BLADE 60, WARD COAT 70 marks.' },
+    { q: 'Buy gear.', a: 'Pick a row with . and , (or tap it), then B. Sell pays half back.' },
     { q: 'Potions?', a: 'HERB mends 18. MANA ROOT fills the blue. Pick them yourself, they are free.' },
   ],
 };

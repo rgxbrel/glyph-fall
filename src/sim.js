@@ -4,7 +4,7 @@
  * replay a client's commands by (tick, playerId). */
 
 import { makeRng } from './world.js';
-import { ITEMS, SKILLS } from './data.js';
+import { ITEMS, SKILLS, STOCK, sellOf } from './data.js';
 import { nextPathStep } from './path.js';
 
 export const TICK = 1 / 60;
@@ -31,7 +31,7 @@ export function createState(seed, names = ['HERALD']) {
     nextNetId: 1, local: '1',
     players: {}, enemies: {}, projectiles: {}, pickups: {},
     quest: { active: false, kills: 0, turnedIn: false },
-    flags: {}, dialogue: null, log: [],
+    flags: {}, log: [],
   };
   for (const n of names) {
     const id = String(state.nextNetId++);
@@ -56,6 +56,9 @@ function makePlayer(id, name) {
     level: 1, xp: 0, xpNext: 20, marks: 0,
     stats: { str: 5, dex: 5, int: 5 }, statPoints: 0,
     inv: [{ id: 'herb', qty: 2 }], equip: { weapon: null, armor: null },
+    /* Which NPC this player is talking to. Per player, never on the shared
+     * state: one world object would show A's conversation on B's screen. */
+    dialogue: null,
     cds: { attack: 0, cast: 0 }, iframes: 0, dead: false, respawn: 0, kills: 0,
   };
 }
@@ -116,12 +119,10 @@ export function applyCommand(state, tick, playerId, cmd, map) {
     case 'interact': interact(state, p); break;
     case 'use': useItem(state, p, cmd.slot); break;
     case 'equip': equipItem(state, p, cmd.slot); break;
-    case 'dialogue': state.dialogue = cmd.payload; break;
     case 'quest': acceptQuest(state); break;
     case 'questin': turnInQuest(state, p); break;
-    case 'trade': trade(state, p, cmd.item); break;
+    case 'trade': trade(state, p, cmd); break;
     case 'forge': forge(state, p, cmd.rune); break;
-    case 'close': state.dialogue = null; break;
     default: break;
   }
 }
@@ -228,7 +229,7 @@ function gainXp(state, p, amount) {
 function interact(state, p) {
   for (const npc of state.npcList || []) {
     if (Math.hypot(npc.x - p.x, npc.y - p.y) < 46) {
-      state.dialogue = { who: npc.id, name: npc.name };
+      p.dialogue = { who: npc.id, name: npc.name };
       return;
     }
   }
@@ -256,14 +257,35 @@ function forge(state, p, runeId) {
   state.log.push({ tick: state.tick, text: `FORGED ${rune.name}` });
 }
 
-function trade(state, p, itemId) {
+/* The trader is the authority on what leaves and enters an account: the client
+ * only ever names a row, never a price or a quantity. */
+function trade(state, p, cmd) {
   const trader = (state.npcList || []).find((npc) => npc.role === 'trade');
-  const item = ITEMS[itemId];
-  if (!trader || !item || !['weapon', 'armor', 'consumable'].includes(item.kind)) return;
-  if (Math.hypot(trader.x - p.x, trader.y - p.y) >= 60 || p.marks < item.value) return;
+  if (!trader || Math.hypot(trader.x - p.x, trader.y - p.y) >= 60) return;
+
+  if (cmd.mode === 'sell') {
+    if (!Number.isInteger(cmd.slot)) return;
+    const s = p.inv[cmd.slot];
+    const item = s && ITEMS[s.id];
+    if (!item || !Number.isFinite(s.qty) || s.qty < 1) return;
+    const price = sellOf(s.id);
+    if (--s.qty <= 0) p.inv.splice(cmd.slot, 1);
+    /* Selling the last copy of what you are wearing must not leave a phantom stat. */
+    if (!p.inv.some((q) => q.id === s.id)) {
+      for (const key of ['weapon', 'armor']) if (p.equip[key] === s.id) p.equip[key] = null;
+    }
+    p.marks += price;
+    state.log.push({ tick: state.tick, text: `SOLD ${item.name} +${price}` });
+    return;
+  }
+
+  const id = cmd.item;
+  if (!STOCK.includes(id)) return;
+  const item = ITEMS[id];
+  if (p.marks < item.value) return;
   p.marks -= item.value;
-  addItem(state, p, itemId, 1);
-  state.log.push({ tick: state.tick, text: `BOUGHT ${item.name}` });
+  addItem(state, p, id, 1);
+  state.log.push({ tick: state.tick, text: `BOUGHT ${item.name} -${item.value}` });
 }
 
 function addItem(state, p, id, qty) {
@@ -310,6 +332,12 @@ export function stepSim(state, map, dt) {
 }
 
 function stepPlayer(state, map, p, dt) {
+  /* Walk away from an NPC and its panel goes with you; the trade checks re-run
+   * the same proximity, so a stale panel can never act at range. */
+  if (p.dialogue) {
+    const npc = (state.npcList || []).find((n) => n.id === p.dialogue.who);
+    if (!npc || Math.hypot(npc.x - p.x, npc.y - p.y) > 70) p.dialogue = null;
+  }
   p.cds.attack = Math.max(0, p.cds.attack - dt);
   p.cds.cast = Math.max(0, p.cds.cast - dt);
   p.iframes = Math.max(0, p.iframes - dt);

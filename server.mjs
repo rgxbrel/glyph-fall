@@ -279,11 +279,8 @@ wss.on('connection', (ws) => {
       if (++c.cmdCount > 120) return;
       if (pendingCmds.length >= 5000) return;
       if (!m.cmd || typeof m.cmd !== 'object' || Array.isArray(m.cmd)) return;
-      if (m.cmd.t === 'dialogue' &&
-          (!m.cmd.payload || typeof m.cmd.payload !== 'object' ||
-           Array.isArray(m.cmd.payload) || typeof m.cmd.payload.who !== 'string' ||
-           m.cmd.payload.who.length > 24 || typeof m.cmd.payload.name !== 'string' ||
-           m.cmd.payload.name.length > 48)) return;
+      /* No 'dialogue' command any more: who you are talking to is decided by the
+       * host from the npc list, not named by the client. */
       pendingCmds.push([c.pid, m.cmd]);
     }
     else if (m.ty === 'chat') {
@@ -360,6 +357,7 @@ function clientsEnts() {
       hp: p.hp, hpMax: p.hpMax, mp: p.mp, mpMax: p.mpMax,
       level: p.level, xp: p.xp, xpNext: p.xpNext, statPoints: p.statPoints, marks: p.marks, kills: p.kills,
       stats: p.stats, inv: p.inv, equip: p.equip, runes: p.runes, dead: p.dead, face: p.face,
+      dialogue: p.dialogue,
     }]);
   }
   return rows;

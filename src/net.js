@@ -122,6 +122,7 @@ export class Net {
     if (mine && m.me) {
       for (const k of ['hp', 'hpMax', 'mp', 'mpMax', 'level', 'xp', 'xpNext', 'statPoints', 'marks', 'kills', 'dead', 'face']) mine[k] = m.me[k];
       mine.stats = m.me.stats; mine.inv = m.me.inv; mine.equip = m.me.equip; mine.runes = m.me.runes || null;
+      mine.dialogue = m.me.dialogue || null;
       const err = Math.hypot(mine.x - m.me.x, mine.y - m.me.y);
       if (err > 34 || mine.dead) { mine.x = m.me.x; mine.y = m.me.y; }
       else if (err > 2) { mine.x += (m.me.x - mine.x) * 0.22; mine.y += (m.me.y - mine.y) * 0.22; }
