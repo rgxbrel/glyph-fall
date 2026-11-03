@@ -213,7 +213,7 @@ wss.on('connection', (ws) => {
       ws.send(JSON.stringify({
         ty: 'hello', id: pid, seed: SEED, tick: state.tick,
         name: state.players[pid].name, online: clients.size,
-        chat: chats.slice(-20),
+        chat: visibleChats(clients.get(ws)),
       }));
       return;
     }
@@ -238,8 +238,11 @@ wss.on('connection', (ws) => {
     }
     else if (m.ty === 'chat') {
       if (++c.chatCount > 10) return;
-      const text = String(m.text || '').slice(0, 120);
-      if (text.trim()) pushChat(c.name, text);
+      const raw = String(m.text || '').slice(0, 120).trim();
+      if (!raw) return;
+      const global = raw.toLowerCase().startsWith('#global ');
+      const text = (global ? raw.slice(8) : raw).trim();
+      if (text) pushChat(c.name, text, global ? 'global' : 'say', c.pid);
     } else if (m.ty === 'leave') leavePlayer(ws);
   });
   ws.on('close', () => leavePlayer(ws));
@@ -256,9 +259,21 @@ setInterval(() => {
 
 let chatSeq = 0;
 const chats = [];
-function pushChat(name, text) {
-  chats.push({ seq: ++chatSeq, name, text, tick: state.tick });
+function pushChat(name, text, channel, from) {
+  const p = state.players[from];
+  chats.push({
+    seq: ++chatSeq, name, text, channel, from,
+    x: p?.x || 0, y: p?.y || 0, tick: state.tick,
+  });
   if (chats.length > 200) chats.shift();
+}
+
+function visibleChats(client) {
+  if (!client) return [];
+  const me = state.players[client.pid];
+  if (!me) return [];
+  return chats.filter((c) => c.channel === 'global' || c.from === client.pid ||
+    Math.hypot((c.x || 0) - me.x, (c.y || 0) - me.y) <= 420).slice(-30);
 }
 
 function worldSnapshot() {
@@ -335,7 +350,7 @@ setInterval(() => {
     for (const ws of wss.clients) {
       if (ws.readyState !== 1) continue;
       const c = clients.get(ws);
-      ws.send(JSON.stringify({ ty: 'snap', ...JSON.parse(text), me: bySocket.get(ws) || null, chat: chats.slice(-30) }));
+      ws.send(JSON.stringify({ ty: 'snap', ...JSON.parse(text), me: bySocket.get(ws) || null, chat: visibleChats(c) }));
     }
   } catch (e) {
     console.error('snapshot failed:', e.message);
