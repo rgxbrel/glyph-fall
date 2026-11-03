@@ -120,6 +120,7 @@ export function applyCommand(state, tick, playerId, cmd, map) {
     case 'quest': acceptQuest(state); break;
     case 'questin': turnInQuest(state, p); break;
     case 'trade': trade(state, p, cmd.item); break;
+    case 'forge': forge(state, p, cmd.rune); break;
     case 'close': state.dialogue = null; break;
     default: break;
   }
@@ -243,6 +244,15 @@ function interact(state, p) {
     }
     return;
   }
+}
+
+function forge(state, p, runeId) {
+  const weapon = p.equip.weapon && ITEMS[p.equip.weapon];
+  const rune = ITEMS[runeId];
+  if (!weapon || !rune || rune.kind !== 'rune' || p.runes?.weapon || p.marks < rune.value) return;
+  p.marks -= rune.value;
+  p.runes = { ...(p.runes || {}), weapon: runeId };
+  state.log.push({ tick: state.tick, text: `FORGED ${rune.name}` });
 }
 
 function trade(state, p, itemId) {

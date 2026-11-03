@@ -191,6 +191,12 @@ addEventListener('keydown', (e) => {
     syncUi();
     return;
   }
+  if (k === 'f' && state.dialogue?.who === 'trader') {
+    const p = state.players[localId()];
+    if (p?.equip.weapon && p.marks >= 30 && !p.runes?.weapon) queue({ t: 'forge', rune: 'fireRune' });
+    syncUi();
+    return;
+  }
   switch (k) {
     case 'j': case 'z': queue({ t: 'attack', target: nearestTarget() }); break;
     case 'l': queue({ t: 'cast', skill: 'spark', target: nearestTarget() }); break;

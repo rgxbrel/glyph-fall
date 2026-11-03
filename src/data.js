@@ -5,6 +5,8 @@ export const ITEMS = {
   blade: { name: 'GLYPH BLADE', kind: 'weapon', dmg: 7, value: 60 },
   coat: { name: 'COAT', kind: 'armor', def: 2, value: 25 },
   ward: { name: 'WARD COAT', kind: 'armor', def: 5, value: 70 },
+  fireRune: { name: 'FIRE RUNE', kind: 'rune', value: 30 },
+  frostRune: { name: 'FROST RUNE', kind: 'rune', value: 30 },
 };
 
 export const SKILLS = {
