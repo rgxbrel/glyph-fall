@@ -296,6 +296,7 @@ function drawHud(g, state, map, W, H, ui, px) {
     g.fillText(`QUEST ${state.quest.kills}/5`, W - 8, px(20));
     g.textAlign = 'left';
   }
+  drawMinimap(g, state, map, W, H, px);
 
   const feed = (state.chatFeed || []).filter((c) => state.time - c.t < 14).slice(-4);
   const tail = state.log.slice(-3);
@@ -340,6 +341,28 @@ function drawHud(g, state, map, W, H, ui, px) {
     g.fillText('COMPILING...', W / 2, H / 2);
     g.textAlign = 'left';
   }
+}
+
+function drawMinimap(g, state, map, W, H, px) {
+  const size = Math.min(px(128), W * 0.24);
+  const x = W - size - px(8), y = px(42);
+  const sx = size / map.w, sy = size / map.h;
+  g.fillStyle = 'rgba(3,6,10,0.86)'; g.fillRect(x - px(3), y - px(3), size + px(6), size + px(6));
+  for (let my = 0; my < map.h; my += 2) {
+    for (let mx = 0; mx < map.w; mx += 2) {
+      const tile = map.tiles[my * map.w + mx];
+      g.fillStyle = tile === T.WATER ? '#174866' : tile === T.TREE ? '#12341f' : tile === T.ROCK ? '#596274' : tile === T.SAND ? '#695b32' : tile === T.DIRT ? '#493a25' : '#1c3827';
+      g.fillRect(x + mx * sx, y + my * sy, Math.max(1, sx * 2), Math.max(1, sy * 2));
+    }
+  }
+  g.strokeStyle = 'rgba(126,233,192,0.8)'; g.lineWidth = 1;
+  g.beginPath(); g.arc(x + (map.spawn.x / (map.w * TILE)) * size, y + (map.spawn.y / (map.h * TILE)) * size, Math.max(3, size * SAFE_RADIUS / (map.w * TILE)), 0, 6.283); g.stroke();
+  const dot = (wx, wy, color, radius = 2) => { g.fillStyle = color; g.fillRect(x + (wx / (map.w * TILE)) * size - radius, y + (wy / (map.h * TILE)) * size - radius, radius * 2, radius * 2); };
+  for (const e of Object.values(state.enemies)) if (e.alive) dot(e.x, e.y, '#ff6b72', 1);
+  for (const npc of map.npcs || []) dot(npc.x, npc.y, '#ffd23f', 2);
+  for (const p of Object.values(state.players)) dot(p.x, p.y, p.local ? '#ffffff' : '#8db7ff', p.local ? 3 : 2);
+  g.strokeStyle = 'rgba(207,238,224,0.45)'; g.strokeRect(x, y, size, size);
+  g.fillStyle = '#c9ffe8'; g.font = `700 ${Math.max(7, px(9))}px ui-monospace, monospace`; g.fillText('MAP', x + px(3), y + px(10));
 }
 
 function bar(g, x, y, w, h, k, col) {
