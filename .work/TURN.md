@@ -110,3 +110,6 @@ game and will read this file when back.
 - safe-spawn: procedural enemies inside SAFE_RADIUS are now skipped at world generation; safe_live confirmed damage remains blocked in plaza and resumes at 264px; crash fuzz kept host ticking with websocket open (e9afcd0).
 
 - progression: enemies now drop MANA ROOT (15%) or HERB (35%); pickup interaction accepts both. mmo2 rerun passed at 60 fps with 0 client errors after one transient browser-frame failure.
+
+- pickups: MANA ROOT now renders blue instead of green; look regression stayed at 60 fps on desktop/mobile and mmo2 had 0 errors (dbaa2dc).
+- quest: accepting an already active quest is now idempotent and preserves kills; direct sim assertion and mmo2 passed (d291810).
