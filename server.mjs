@@ -9,6 +9,7 @@ import { extname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
 import { generateMap } from './src/world.js';
 import { createState, spawnWorld, placeAtSpawn, spawnPoint, applyCommand, stepSim, TICK } from './src/sim.js';
+import { ITEMS } from './src/data.js';
 
 const ROOT = process.cwd();
 const PORT = Number(process.env.PORT || 8780);
@@ -72,10 +73,43 @@ setInterval(() => {
 }, 30000);
 process.on('SIGTERM', () => { flushSaves().finally(() => process.exit(0)); });
 
+function cleanSave(prev) {
+  if (!prev || typeof prev !== 'object') return null;
+  const clean = { ...prev };
+  if (prev.stats && typeof prev.stats === 'object') {
+    clean.stats = {};
+    for (const k of ['str', 'dex', 'int']) {
+      const n = Number(prev.stats[k]);
+      clean.stats[k] = Number.isFinite(n) ? Math.max(1, Math.min(999, Math.floor(n))) : 5;
+    }
+  }
+  if (Array.isArray(prev.inv)) {
+    clean.inv = prev.inv
+      .filter((slot) => slot && typeof slot === 'object' && ITEMS[slot.id])
+      .slice(0, 24)
+      .map((slot) => ({ id: slot.id, qty: Math.max(1, Math.min(99, Math.floor(Number(slot.qty) || 1))) }));
+  }
+  if (prev.equip && typeof prev.equip === 'object') {
+    clean.equip = {
+      weapon: ITEMS[prev.equip.weapon]?.kind === 'weapon' ? prev.equip.weapon : null,
+      armor: ITEMS[prev.equip.armor]?.kind === 'armor' ? prev.equip.armor : null,
+    };
+  }
+  return clean;
+}
+
 function joinPlayer(ws, name) {
+  if (clients.has(ws)) return null;
+  const requested = typeof name === 'string' ? name : 'WANDERER';
+  const normalized = requested.toUpperCase().slice(0, 12) || 'WANDERER';
+  if ([...clients.values()].some((c) => c.name === normalized)) {
+    ws.send(JSON.stringify({ ty: 'error', error: 'name in use' }));
+    ws.close(1008, 'name in use');
+    return null;
+  }
   const id = String(state.nextNetId++);
   state.players[id] = {
-    id, name: (name || 'WANDERER').toUpperCase().slice(0, 12),
+    id, name: normalized,
     x: map.spawn.x, y: map.spawn.y, vx: 0, vy: 0, r: 12, face: 0, anim: 0,
     hp: 60, hpMax: 60, mp: 30, mpMax: 30,
     level: 1, xp: 0, xpNext: 20, marks: 0,
@@ -86,7 +120,7 @@ function joinPlayer(ws, name) {
   };
   clients.set(ws, { pid: id, name: state.players[id].name });
   const p = state.players[id];
-  const prev = saves[p.name];
+  const prev = cleanSave(saves[p.name]);
   if (prev && Number.isFinite(prev.level)) {
     for (const k of ['level', 'xp', 'xpNext', 'marks', 'kills', 'hpMax', 'mpMax']) {
       if (Number.isFinite(prev[k])) p[k] = prev[k];
@@ -167,6 +201,7 @@ wss.on('connection', (ws) => {
     try { m = JSON.parse(buf.toString()); } catch { return; }
     if (m.ty === 'join') {
       const pid = joinPlayer(ws, m.name);
+      if (!pid) return;
       ws.send(JSON.stringify({
         ty: 'hello', id: pid, seed: SEED, tick: state.tick,
         name: state.players[pid].name, online: clients.size,
@@ -247,12 +282,18 @@ setInterval(() => {
   acc += 1 / 6;
   while (acc >= TICK) {
     acc -= TICK;
+    const commands = pendingCmds;
+    pendingCmds = [];
+    for (const [pid, cmd] of commands) {
+      try {
+        applyCommand(state, state.tick, pid, cmd, map);
+      } catch (e) {
+        console.error(`command ${state.tick}/${pid} failed: ${e.stack || e}`);
+      }
+    }
     try {
-      for (const [pid, cmd] of pendingCmds) applyCommand(state, state.tick, pid, cmd, map);
-      pendingCmds = [];
       stepSim(state, map, TICK);
     } catch (e) {
-      pendingCmds = [];
       console.error(`tick ${state.tick} failed: ${e.stack || e}`);
     }
   }
