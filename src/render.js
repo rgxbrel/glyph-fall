@@ -63,6 +63,8 @@ export function drawScene(g, state, map, cam, W, H, ui, zoom = 1) {
     }
   }
 
+  drawSceneLighting(g, state, map, cam, W, H, vw, vh);
+
   /* The safe plaza as a ring of daggers on the ground: it is drawn after the
    * tiles, which paint over anything beneath them, and as glyphs so the ASCII
    * pass reproduces it instead of flattening a coloured line. */
@@ -230,9 +232,31 @@ function drawDayNight(g, state, W, H) {
   }
 }
 
+function drawSceneLighting(g, state, map, cam, W, H, vw, vh) {
+  const lights = [];
+  const local = state.players[state.local];
+  if (local) lights.push({ x: local.x, y: local.y, color: '#7fe9c0', radius: 150, alpha: 0.16 });
+  for (const p of Object.values(state.players)) {
+    if (!p.dead && (!local || p.id !== local.id)) lights.push({ x: p.x, y: p.y, color: '#8faeff', radius: 110, alpha: 0.09 });
+  }
+  for (const e of Object.values(state.enemies)) {
+    if (e.alive && e.hurt > 0) lights.push({ x: e.x, y: e.y, color: '#ff8b8b', radius: 70, alpha: 0.12 });
+  }
+  g.save();
+  g.globalCompositeOperation = 'screen';
+  for (const light of lights) {
+    const grad = g.createRadialGradient(light.x, light.y, 0, light.x, light.y, light.radius);
+    grad.addColorStop(0, `${light.color}${Math.round(light.alpha * 255).toString(16).padStart(2, '0')}`);
+    grad.addColorStop(1, `${light.color}00`);
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(light.x, light.y, light.radius, 0, Math.PI * 2); g.fill();
+  }
+  g.restore();
+}
+
 function wave(t, i) { return Math.sin(t * 2 + i) * 3; }
 
-function enemyColor(k) { return k === 'slime' ? '#5fe8a0' : k === 'beetle' ? '#ffb347' : '#c58fff'; }
+function enemyColor(k) { return k === 'slime' ? '#72f0aa' : k === 'beetle' ? '#ffc266' : '#d09cff'; }
 
 function drawActor(g, p, state, px, rowH, snapY) {
   if (p.dead) {
@@ -242,10 +266,14 @@ function drawActor(g, p, state, px, rowH, snapY) {
   const blink = p.iframes > 0 && (Math.floor(state.time * 20) % 2 === 0);
   const body = blink ? '#2a3a44' : p.flash > 0 ? '#ffffff' : '#e6edf4';
   const bob = Math.hypot(p.vx, p.vy) > 1 ? Math.sin(p.anim) * 2 : 0;
+  g.fillStyle = 'rgba(0,0,0,0.42)';
+  g.beginPath(); g.ellipse(p.x, p.y + rowH * 3.2, 15, 5, 0, 0, Math.PI * 2); g.fill();
   /* One bar per text row, 60% of it filled: the pass reads each row as a solid
    * dash instead of a dim half-lit cell. */
   const th = Math.max(1.5, rowH * 0.78);
   const top = snapY(p.y - rowH * 4.5 + bob);
+  g.fillStyle = p.local ? '#7fe9c0' : '#a8c4ff';
+  g.fillRect(p.x - 6, top - th, 12, th);
   g.fillStyle = body;
   g.fillRect(p.x - 5, top, 10, th);
   for (let i = 1; i < 6; i++) g.fillRect(p.x - 9, top + i * rowH, 18, th);
