@@ -102,3 +102,7 @@ game and will read this file when back.
   what made melee unable to aim.
 - look: `NIGHT 0.2`, cool ground mix, faint rain, figure rows snapped to the text
   grid so every row lights (mobile figure went from 3 dim cells to a full stack).
+
+- audio: procedural hit, level-up, heal, frost and rain cues added in 8dd069f; desktop/mobile captures remained at 60 fps, /health and /rank stayed healthy.
+
+- mobile-combat: holding ATTACK now retargets and queues strikes every 180ms; mmo2 regression stayed at 60 fps with 0 client errors (fccf148).
